@@ -1,0 +1,31 @@
+{
+	"$schema": "https://unpkg.com/oxlint/configuration_schema.json",
+	"options": {
+		"typeAware": true,
+		"typeCheck": true
+	},
+	"plugins": ["eslint", "oxc", "react", "typescript", "unicorn"],
+	"categories": {
+		"correctness": "warn",
+		"suspicious": "warn",
+		"perf": "warn"
+	},
+	"rules": {
+		"curly": "warn",
+		"no-control-regex": "off",
+		"react/react-compiler": "warn",
+		"react/react-in-jsx-scope": "off"
+	},
+	"overrides": [
+		{
+			"files": ["*.test.ts"],
+			"rules": {
+				"no-await-in-loop": "off",
+				"typescript/await-thenable": "off",
+				"typescript/no-floating-promises": "off",
+				"typescript/no-unsafe-type-assertion": "off",
+				"unicorn/consistent-function-scoping": "off"
+			}
+		}
+	]
+}
