@@ -44,6 +44,19 @@ describe('Builder', () => {
 		expect(builder.build('Home')).toBe('/');
 	});
 
+	it('rejects a dot segment in a path param, which URL normalization would resolve away', () => {
+		expect(() => builder.build('Profile', { actor: '..' })).toThrow(/cannot contain a '\.\.' segment/);
+		expect(() => builder.build('Profile', { actor: '.' })).toThrow();
+		expect(() => builder.build('Post', { actor: '..', n: 1 })).toThrow();
+	});
+
+	it('allows dots in a path param that do not form a whole segment', () => {
+		expect(builder.build('Profile', { actor: '..x' })).toBe('/profile/..x');
+		expect(builder.build('Profile', { actor: 'a.b' })).toBe('/profile/a.b');
+		// the separator percent-encodes away, so this stays a single harmless segment.
+		expect(builder.build('Profile', { actor: 'a/..' })).toBe('/profile/a%2F..');
+	});
+
 	it('substitutes and encodes path params', () => {
 		expect(builder.build('Profile', { actor: 'alice' })).toBe('/profile/alice');
 		expect(builder.build('Profile', { actor: 'al ice' })).toBe('/profile/al%20ice');
@@ -131,6 +144,27 @@ describe('Builder', () => {
 				expect(matched?.params).toEqual({ rest });
 				expect(splatBuilder.build('Docs', matched?.params as { rest: string })).toBe(built);
 			}
+		});
+
+		it('rejects dot segments, which URL normalization would resolve into another route', () => {
+			expect(() => splatBuilder.build('Docs', { rest: '../x' })).toThrow(/cannot contain a '\.\.' segment/);
+			expect(() => splatBuilder.build('Docs', { rest: 'a/../x' })).toThrow();
+			expect(() => splatBuilder.build('Docs', { rest: 'a/./x' })).toThrow();
+			expect(() => splatBuilder.build('Docs', { rest: '..' })).toThrow();
+			expect(() => splatBuilder.build('Docs', { rest: '.' })).toThrow();
+		});
+
+		it('allows dots that do not form a whole segment', () => {
+			expect(splatBuilder.build('Docs', { rest: 'a../x' })).toBe('/docs/a../x');
+			expect(splatBuilder.build('Docs', { rest: '.hidden/..x' })).toBe('/docs/.hidden/..x');
+			expect(splatBuilder.build('Docs', { rest: 'index.ts' })).toBe('/docs/index.ts');
+		});
+
+		it('escapes a remainder that spells a dot segment percent-encoded', () => {
+			// `%2E%2E` would normalize like `..`, so the encoded form must not decode back into one.
+			const built = splatBuilder.build('Docs', { rest: '%2E%2E' });
+			expect(built).toBe('/docs/%252E%252E');
+			expect(splatMatcher.match(built)?.params).toEqual({ rest: '%2E%2E' });
 		});
 
 		it('round trips alongside preceding dynamic params', () => {

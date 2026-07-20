@@ -36,15 +36,33 @@ export class Builder<R extends RouteRegistry<unknown> = RouteRegistry<unknown>> 
 			return codec.encode(value);
 		};
 
+		// a dot segment cannot survive a round trip: WHATWG URL parsing resolves it away, so `..` would
+		// navigate somewhere other than where it was built. percent-encoding is no escape either — the spec
+		// matches `%2e` case-insensitively when detecting dot segments — so reject them outright.
+		const rejectDotSegments = (segments: readonly string[], paramName: string): void => {
+			for (const segment of segments) {
+				if (segment === '.' || segment === '..') {
+					throw new Error(
+						`stacker: path param '${paramName}' for route '${name}' cannot contain a '${segment}' segment`,
+					);
+				}
+			}
+		};
+
 		const { head, splat } = splitSplat(leaf.path);
 
-		let pathname = head.replaceAll(SEGMENT, (_full, paramName: string) =>
-			encodeURIComponent(encodeParam(paramName)),
-		);
+		let pathname = head.replaceAll(SEGMENT, (_full, paramName: string) => {
+			// an ordinary param is always one segment; its own separators percent-encode away.
+			const encoded = encodeParam(paramName);
+			rejectDotSegments([encoded], paramName);
+			return encodeURIComponent(encoded);
+		});
 
 		if (splat !== undefined) {
-			// an empty remainder contributes nothing, keeping `/docs` the canonical form rather than `/docs/`.
 			const remainder = encodeParam(splat);
+			rejectDotSegments(remainder.split('/'), splat);
+
+			// an empty remainder contributes nothing, keeping `/docs` the canonical form rather than `/docs/`.
 			if (remainder !== '') {
 				pathname += `/${encodeRemainder(remainder)}`;
 			}

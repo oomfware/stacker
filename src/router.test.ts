@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Codec } from './codec.ts';
-import { enumOf, optional, string, withDefault } from './codec.ts';
+import { enumOf, nonEmpty, optional, string, withDefault } from './codec.ts';
 import { MemoryHistory } from './history/memory.ts';
 import { NavigationHistory } from './history/navigation.ts';
 import type { HistoryListener } from './history/types.ts';
@@ -362,6 +362,54 @@ describe('Router', () => {
 
 			expect(await settles(history.pending[0]!)).toBe('settled');
 		});
+	});
+});
+
+describe('Router splat navigation', () => {
+	// exercised through a real history so that WHATWG URL normalization is in play; calling Matcher
+	// directly bypasses the `new URL()` resolution that makes dot segments dangerous.
+	const splatRoutes = defineRoutes({
+		app: layout({
+			children: {
+				Admin: route({ component: Dummy, path: '/admin' }),
+				Docs: route({ component: Dummy, params: { rest: nonEmpty() }, path: '/docs/*rest' }),
+				DocsIndex: route({ component: Dummy, path: '/docs' }),
+			},
+			component: Dummy,
+		}),
+	});
+
+	const open = (initialEntries: string[] = ['/']) =>
+		new Router({ history: new MemoryHistory({ initialEntries }), routes: splatRoutes });
+
+	// activePath holds instance keys, so anchor to the leaf's node id to keep `Docs` from matching `DocsIndex`.
+	const leafIs = (router: Router<typeof splatRoutes>, leaf: string): boolean =>
+		router.view.activePath.at(-1)?.startsWith(`app.${leaf}\0`) ?? false;
+
+	it('round trips a built splat URL through navigation', () => {
+		const router = open();
+		const built = router.build('Docs', { rest: 'guide/intro' });
+		expect(built).toBe('/docs/guide/intro');
+
+		router.push(built);
+		expect(router.location.pathname).toBe('/docs/guide/intro');
+		expect(leafIs(router, 'Docs')).toBe(true);
+	});
+
+	it('cannot build a URL that navigation would redirect into a sibling route', () => {
+		const router = open();
+		expect(() => router.build('Docs', { rest: '../admin' })).toThrow();
+
+		// the escape it forecloses: had the build succeeded, this is where the URL would have landed.
+		router.push('/docs/../admin');
+		expect(router.location.pathname).toBe('/admin');
+		expect(leafIs(router, 'Admin')).toBe(true);
+	});
+
+	it('falls through to the bare parent route when the remainder is empty', () => {
+		const router = open();
+		router.push('/docs');
+		expect(leafIs(router, 'DocsIndex')).toBe(true);
 	});
 });
 
