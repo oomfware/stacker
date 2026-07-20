@@ -1,6 +1,6 @@
 {
 	"name": "@oomfware/stacker",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "type-safe stack router for React",
 	"license": "0BSD",
 	"repository": {
