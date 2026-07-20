@@ -153,7 +153,12 @@ export const enumOf = <const V extends readonly string[]>(values: V): Codec<V[nu
  */
 export const nonEmpty = (): Codec<string> => ({
 	decode: (raw) => (raw === '' ? undefined : raw),
-	encode: (value) => value,
+	encode: (value) => {
+		if (value === '') {
+			throw new Error('stacker: nonEmpty() cannot encode an empty string');
+		}
+		return value;
+	},
 });
 
 /**

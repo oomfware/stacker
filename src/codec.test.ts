@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { boolean, enumOf, getDefault, integer, isOptional, optional, string, withDefault } from './codec.ts';
+import {
+	boolean,
+	enumOf,
+	getDefault,
+	integer,
+	isOptional,
+	nonEmpty,
+	optional,
+	string,
+	withDefault,
+} from './codec.ts';
 
 describe('string', () => {
 	it('decodes and encodes any segment identically', () => {
@@ -77,6 +87,27 @@ describe('enumOf', () => {
 
 	it('encodes', () => {
 		expect(c.encode('profile')).toBe('profile');
+	});
+});
+
+describe('nonEmpty', () => {
+	const c = nonEmpty();
+
+	it('decodes any non-empty segment', () => {
+		expect(c.decode('guide/intro')).toBe('guide/intro');
+		expect(c.decode('a')).toBe('a');
+	});
+
+	it('rejects the empty segment', () => {
+		expect(c.decode('')).toBeUndefined();
+	});
+
+	it('encodes', () => {
+		expect(c.encode('guide/intro')).toBe('guide/intro');
+	});
+
+	it('throws rather than encode a value it could not decode back', () => {
+		expect(() => c.encode('')).toThrow();
 	});
 });
 
