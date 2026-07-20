@@ -131,6 +131,21 @@ describe('defineRoutes', () => {
 			).toThrow(/must not be optional/);
 		});
 
+		it('accepts a named trailing splat, treating it as a required path param', () => {
+			expect(() =>
+				defineRoutes({ X: route({ component: Dummy, params: { rest: string() }, path: '/docs/*rest' }) }),
+			).not.toThrow();
+			expect(() => defineRoutes({ X: route({ component: Dummy, path: '/docs/*rest' }) })).toThrow(
+				/path params/,
+			);
+		});
+
+		it('rejects a `*` that is not a named trailing splat, which would compile to a literal asterisk', () => {
+			for (const path of ['/docs/*', '/docs/*rest/edit', '/a*b']) {
+				expect(() => defineRoutes({ X: route({ component: Dummy, path }) })).toThrow(/trailing splat/);
+			}
+		});
+
 		it('rejects a route path that is not absolute, which could never match a pathname', () => {
 			expect(() => defineRoutes({ X: route({ component: Dummy, path: 'x' }) })).toThrow(/must start with/);
 		});

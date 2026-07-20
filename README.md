@@ -78,6 +78,9 @@ const routes = defineRoutes({
 });
 ```
 
+routes are matched in declaration order, so declare specific paths ahead of broader ones that would
+also match.
+
 configure `type` to control page instance lifetimes:
 
 ```ts
@@ -109,6 +112,19 @@ route({
 
 path parameters are always required. query parameters without a default or optional codec must be
 present in the URL to match the route.
+
+end a path with `*name` to capture the rest of the URL, separators included. a splat also matches
+its bare parent path, where the remainder is empty:
+
+```ts
+route({ component: Docs, params: { rest: string() }, path: '/docs/*rest' });
+
+// /docs/guide/intro -> { rest: 'guide/intro' }
+// /docs             -> { rest: '' }
+```
+
+swap `string()` for `nonEmpty()` to reject the empty remainder, which leaves `/docs` to fall through
+to the next matching route.
 
 write custom codecs by defining `decode` and `encode` methods:
 

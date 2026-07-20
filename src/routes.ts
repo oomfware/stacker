@@ -164,16 +164,48 @@ export interface RouteRegistry<T> {
 }
 
 const PATH_PARAM = /:([A-Za-z_]\w*)/g;
+const SPLAT = /\/\*([A-Za-z_]\w*)$/;
+
+/**
+ * splits a route pattern into the part before its trailing splat and the splat parameter name.
+ *
+ * @param path the route path pattern
+ * @returns the head preceding the splat, and the splat name when the pattern declares one
+ */
+export const splitSplat = (path: string): { head: string; splat: string | undefined } => {
+	const match = SPLAT.exec(path);
+	return match === null
+		? { head: path, splat: undefined }
+		: { head: path.slice(0, match.index), splat: match[1] };
+};
 
 const pathParamNames = (path: string): string[] => {
+	const { head, splat } = splitSplat(path);
+
 	const names: string[] = [];
-	for (const match of path.matchAll(PATH_PARAM)) {
+	for (const match of head.matchAll(PATH_PARAM)) {
 		const name = match[1];
 		if (name !== undefined) {
 			names.push(name);
 		}
 	}
+	// the splat is appended last so that it lines up with the final capture group the matcher compiles.
+	if (splat !== undefined) {
+		names.push(splat);
+	}
 	return names;
+};
+
+/**
+ * rejects a `*` that is not a well-formed trailing splat, so that a typo fails at load time rather than
+ * silently compiling into a literal asterisk.
+ */
+const assertSplatPlacement = (key: string, path: string): void => {
+	if (splitSplat(path).head.includes('*')) {
+		throw new Error(
+			`stacker: route '${key}' path '${path}' may only use '*' as a named trailing splat, as in '/docs/*rest'`,
+		);
+	}
 };
 
 const sameKeySet = (a: readonly string[], b: readonly string[]): boolean => {
@@ -230,6 +262,8 @@ export const defineRoutes = <const T>(tree: T & ValidRoutes<T>): RouteRegistry<T
 			if (!node.path.startsWith('/')) {
 				throw new Error(`stacker: route '${key}' path '${node.path}' must start with '/'`);
 			}
+
+			assertSplatPlacement(key, node.path);
 
 			const query: CodecRecord = node.query ?? {};
 			const ownPathParams = pathParamNames(node.path);

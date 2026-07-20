@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createPath, parsePath, resolvePath } from './url.ts';
+import { createPath, decodeRemainder, encodeRemainder, parsePath, resolvePath } from './url.ts';
 
 describe('parsePath', () => {
 	it('splits pathname, search, and hash', () => {
@@ -59,5 +59,23 @@ describe('resolvePath', () => {
 
 	it('resolves a bare relative reference against the base directory', () => {
 		expect(resolvePath('bob', base).pathname).toBe('/profile/bob');
+	});
+});
+
+describe('remainder encoding', () => {
+	it('encodes each segment while leaving separators intact', () => {
+		expect(encodeRemainder('a b/c')).toBe('a%20b/c');
+		expect(encodeRemainder('')).toBe('');
+	});
+
+	it('round trips a remainder through encode and decode', () => {
+		for (const value of ['', 'a', 'a/b/c', 'a b/c', 'π/ü']) {
+			expect(decodeRemainder(encodeRemainder(value))).toBe(value);
+		}
+	});
+
+	it('decodes an encoded separator into one indistinguishable from a real separator', () => {
+		expect(decodeRemainder('a%2Fb')).toBe('a/b');
+		expect(decodeRemainder('a/b')).toBe('a/b');
 	});
 });

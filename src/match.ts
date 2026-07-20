@@ -1,5 +1,7 @@
 import { getDefault, isOptional } from './codec.ts';
+import { splitSplat } from './routes.ts';
 import type { ResolvedLeaf, ResolvedNode, RouteMeta, RouteRegistry, WhenContext } from './routes.ts';
+import { decodeRemainder } from './url.ts';
 
 /** a node on a matched chain paired with its instance parameters. */
 export interface MatchedNode {
@@ -38,6 +40,8 @@ export const resolveMeta = <K extends keyof RouteMeta>(
 };
 
 interface CompiledLeaf {
+	/** whether the last entry of `paramNames` is a trailing splat. */
+	readonly hasSplat: boolean;
 	readonly leaf: ResolvedLeaf;
 	readonly paramNames: readonly string[];
 	readonly regex: RegExp;
@@ -47,23 +51,32 @@ const SEGMENT = /:[A-Za-z_]\w*/g;
 
 const escapeRegExp = (segment: string): string => segment.replaceAll(/[$()*+.?[\\\]^{|}]/g, '\\$&');
 
-const compile = (path: string): { paramNames: string[]; regex: RegExp } => {
+const compile = (path: string): { hasSplat: boolean; paramNames: string[]; regex: RegExp } => {
+	const { head, splat } = splitSplat(path);
+
 	const paramNames: string[] = [];
 	let pattern = '';
 	let lastIndex = 0;
-	for (const match of path.matchAll(SEGMENT)) {
+	for (const match of head.matchAll(SEGMENT)) {
 		const whole = match[0];
 		const at = match.index;
 		if (at === undefined) {
 			continue;
 		}
 		paramNames.push(whole.slice(1));
-		pattern += `${escapeRegExp(path.slice(lastIndex, at))}([^/]+)`;
+		pattern += `${escapeRegExp(head.slice(lastIndex, at))}([^/]+)`;
 		lastIndex = at + whole.length;
 	}
-	pattern += escapeRegExp(path.slice(lastIndex));
+	pattern += escapeRegExp(head.slice(lastIndex));
+
+	if (splat !== undefined) {
+		paramNames.push(splat);
+		// the whole tail is optional, so `/docs/*rest` matches `/docs` and `/docs/` with an empty remainder.
+		return { hasSplat: true, paramNames, regex: new RegExp(`^${pattern}(?:/(.*))?$`) };
+	}
+
 	const suffix = pattern.endsWith('/') ? '' : '/?';
-	return { paramNames, regex: new RegExp(`^${pattern}${suffix}$`) };
+	return { hasSplat: false, paramNames, regex: new RegExp(`^${pattern}${suffix}$`) };
 };
 
 /** matches URLs in declaration order against a compiled route registry. */
@@ -72,8 +85,8 @@ export class Matcher {
 
 	constructor(registry: RouteRegistry<unknown>) {
 		this.#compiled = [...registry.leaves.values()].map((leaf) => {
-			const { paramNames, regex } = compile(leaf.path);
-			return { leaf, paramNames, regex };
+			const { hasSplat, paramNames, regex } = compile(leaf.path);
+			return { hasSplat, leaf, paramNames, regex };
 		});
 	}
 
@@ -81,13 +94,14 @@ export class Matcher {
 		const rawSearch = new URLSearchParams(search);
 		const ctx: WhenContext = { hash, pathname, rawSearch, search };
 
-		for (const { leaf, paramNames, regex } of this.#compiled) {
+		for (const compiled of this.#compiled) {
+			const { leaf, regex } = compiled;
 			const execed = regex.exec(pathname);
 			if (execed === null) {
 				continue;
 			}
 
-			const raw = this.#rawValues(paramNames, execed);
+			const raw = this.#rawValues(compiled, execed);
 			if (raw === undefined) {
 				continue;
 			}
@@ -117,10 +131,24 @@ export class Matcher {
 		return undefined;
 	}
 
-	#rawValues(paramNames: readonly string[], execed: RegExpExecArray): Record<string, string> | undefined {
+	#rawValues(
+		{ hasSplat, paramNames }: CompiledLeaf,
+		execed: RegExpExecArray,
+	): Record<string, string> | undefined {
+		const splatIndex = hasSplat ? paramNames.length - 1 : -1;
 		const raw: Record<string, string> = {};
 		for (const [i, name] of paramNames.entries()) {
 			const value = execed[i + 1];
+			if (i === splatIndex) {
+				// the tail group does not participate on a bare parent path, so substitute an empty remainder
+				// and leave it to the codec to accept or reject.
+				try {
+					raw[name] = decodeRemainder(value ?? '');
+				} catch {
+					return undefined;
+				}
+				continue;
+			}
 			if (value === undefined) {
 				return undefined;
 			}

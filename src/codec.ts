@@ -143,6 +143,20 @@ export const enumOf = <const V extends readonly string[]>(values: V): Codec<V[nu
 };
 
 /**
+ * creates a codec for a string that rejects the empty value.
+ *
+ * this is how a splat route demands at least one trailing segment: `/docs/*rest` otherwise matches `/docs`
+ * itself with an empty remainder, and rejecting it lets the URL fall through to a later route. ordinary path
+ * params can never be empty, so the distinction only matters for splats and query params.
+ *
+ * @returns the non-empty string codec
+ */
+export const nonEmpty = (): Codec<string> => ({
+	decode: (raw) => (raw === '' ? undefined : raw),
+	encode: (value) => value,
+});
+
+/**
  * wraps a codec to allow its parameter to be absent.
  *
  * @param codec the inner codec

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Codec } from './codec.ts';
-import { enumOf, optional, string, withDefault } from './codec.ts';
+import { enumOf, nonEmpty, optional, string, withDefault } from './codec.ts';
 import { Matcher, resolveMeta } from './match.ts';
 import { defineRoutes, layout, route } from './routes.ts';
 import { Dummy, matched } from './test-support.ts';
@@ -108,6 +108,62 @@ describe('Matcher', () => {
 		it('disambiguates same-path routes by `when`', () => {
 			expect(matcher.match('/search')?.name).toBe('Explore');
 			expect(matcher.match('/search', '?q=cats')?.name).toBe('Search');
+		});
+	});
+
+	describe('splats', () => {
+		const splatRoutes = defineRoutes({
+			Docs: route({ component: Dummy, params: { rest: string() }, path: '/docs/*rest' }),
+			Files: route({ component: Dummy, params: { rest: nonEmpty() }, path: '/files/*rest' }),
+			Scoped: route({
+				component: Dummy,
+				params: { actor: string(), rest: string() },
+				path: '/u/:actor/tree/*rest',
+			}),
+			Catchall: route({ component: Dummy, params: { rest: string() }, path: '/*rest' }),
+		});
+		const splatMatcher = new Matcher(splatRoutes);
+
+		it('captures the remainder across separators', () => {
+			expect(splatMatcher.match('/docs/a/b/c')?.params).toEqual({ rest: 'a/b/c' });
+		});
+
+		it('matches the bare parent path with an empty remainder', () => {
+			expect(splatMatcher.match('/docs')?.name).toBe('Docs');
+			expect(splatMatcher.match('/docs')?.params).toEqual({ rest: '' });
+		});
+
+		it('treats a trailing slash as an empty remainder', () => {
+			expect(splatMatcher.match('/docs/')?.params).toEqual({ rest: '' });
+		});
+
+		it('lets a codec reject the empty remainder to demand a trailing segment', () => {
+			expect(splatMatcher.match('/files/a/b')?.params).toEqual({ rest: 'a/b' });
+			expect(splatMatcher.match('/files')?.name).toBe('Catchall');
+		});
+
+		it('combines a splat with preceding dynamic params', () => {
+			expect(splatMatcher.match('/u/alice/tree/src/index.ts')?.params).toEqual({
+				actor: 'alice',
+				rest: 'src/index.ts',
+			});
+		});
+
+		it('decodes the remainder per segment, leaving separators intact', () => {
+			expect(splatMatcher.match('/docs/a%20b/c')?.params).toEqual({ rest: 'a b/c' });
+		});
+
+		it('matches the root path from a root-level splat', () => {
+			expect(splatMatcher.match('/')?.params).toEqual({ rest: '' });
+		});
+
+		it('is shadowed by an earlier sibling, since matching follows declaration order', () => {
+			const ordered = defineRoutes({
+				Wild: route({ component: Dummy, params: { rest: string() }, path: '/docs/*rest' }),
+				Settings: route({ component: Dummy, path: '/docs/settings' }),
+			});
+
+			expect(new Matcher(ordered).match('/docs/settings')?.name).toBe('Wild');
 		});
 	});
 

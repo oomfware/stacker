@@ -1,6 +1,7 @@
 import { getDefault, isOptional } from './codec.ts';
+import { splitSplat } from './routes.ts';
 import type { BuildParamsOf, RouteName, RouteRegistry } from './routes.ts';
-import { createPath } from './url.ts';
+import { createPath, encodeRemainder } from './url.ts';
 
 const SEGMENT = /:([A-Za-z_]\w*)/g;
 
@@ -26,14 +27,28 @@ export class Builder<R extends RouteRegistry<unknown> = RouteRegistry<unknown>> 
 			throw new Error(`stacker: unknown route '${name}'`);
 		}
 
-		const pathname = leaf.path.replaceAll(SEGMENT, (_full, paramName: string) => {
+		const encodeParam = (paramName: string): string => {
 			const codec = leaf.params[paramName];
 			const value = params[paramName];
 			if (codec === undefined || value === undefined) {
 				throw new Error(`stacker: missing path param '${paramName}' for route '${name}'`);
 			}
-			return encodeURIComponent(codec.encode(value));
-		});
+			return codec.encode(value);
+		};
+
+		const { head, splat } = splitSplat(leaf.path);
+
+		let pathname = head.replaceAll(SEGMENT, (_full, paramName: string) =>
+			encodeURIComponent(encodeParam(paramName)),
+		);
+
+		if (splat !== undefined) {
+			// an empty remainder contributes nothing, keeping `/docs` the canonical form rather than `/docs/`.
+			const remainder = encodeParam(splat);
+			if (remainder !== '') {
+				pathname += `/${encodeRemainder(remainder)}`;
+			}
+		}
 
 		const search = new URLSearchParams();
 		for (const [paramName, codec] of Object.entries(leaf.query)) {

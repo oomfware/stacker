@@ -29,6 +29,16 @@ export const resolvePath = (to: string, base: PathParts): PathParts => {
 	return { hash: resolved.hash, pathname: resolved.pathname, search: resolved.search };
 };
 
+/**
+ * decodes a splat remainder one segment at a time, so that separators survive decoding.
+ *
+ * an encoded `%2F` therefore decodes to a literal `/` and is indistinguishable from a real separator.
+ */
+export const decodeRemainder = (raw: string): string => raw.split('/').map(decodeURIComponent).join('/');
+
+/** encodes a splat remainder one segment at a time, the inverse of {@link decodeRemainder}. */
+export const encodeRemainder = (value: string): string => value.split('/').map(encodeURIComponent).join('/');
+
 export const createPath = ({ hash, pathname, search }: PathParts): string => {
 	let out = pathname || '/';
 	if (search && search !== '?') {

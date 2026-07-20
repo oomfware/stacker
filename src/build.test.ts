@@ -102,4 +102,41 @@ describe('Builder', () => {
 			expect(matcher.match(pathname, search)?.params).toEqual({ sort: 'hot' });
 		});
 	});
+
+	describe('splats', () => {
+		const splatRoutes = defineRoutes({
+			Docs: route({ component: Dummy, params: { rest: string() }, path: '/docs/*rest' }),
+			Scoped: route({
+				component: Dummy,
+				params: { actor: string(), rest: string() },
+				path: '/u/:actor/tree/*rest',
+			}),
+		});
+		const splatBuilder = new Builder(splatRoutes);
+		const splatMatcher = new Matcher(splatRoutes);
+
+		it('appends the remainder, encoding each segment but keeping separators', () => {
+			expect(splatBuilder.build('Docs', { rest: 'a b/c' })).toBe('/docs/a%20b/c');
+		});
+
+		it('drops the trailing slash when the remainder is empty', () => {
+			expect(splatBuilder.build('Docs', { rest: '' })).toBe('/docs');
+		});
+
+		it('round trips, so canonicalizing a match is a fixed point', () => {
+			for (const rest of ['', 'a', 'a/b/c', 'a b/c']) {
+				const built = splatBuilder.build('Docs', { rest });
+				const matched = splatMatcher.match(built);
+				expect(matched?.name).toBe('Docs');
+				expect(matched?.params).toEqual({ rest });
+				expect(splatBuilder.build('Docs', matched?.params as { rest: string })).toBe(built);
+			}
+		});
+
+		it('round trips alongside preceding dynamic params', () => {
+			const built = splatBuilder.build('Scoped', { actor: 'alice', rest: 'src/index.ts' });
+			expect(built).toBe('/u/alice/tree/src/index.ts');
+			expect(splatMatcher.match(built)?.params).toEqual({ actor: 'alice', rest: 'src/index.ts' });
+		});
+	});
 });

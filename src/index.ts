@@ -1,5 +1,5 @@
 export type { Codec, DefaultedCodec, Infer, OptionalCodec } from './codec.ts';
-export { boolean, enumOf, integer, optional, string, withDefault } from './codec.ts';
+export { boolean, enumOf, integer, nonEmpty, optional, string, withDefault } from './codec.ts';
 export type {
 	BuildParamsOf,
 	LayoutConfig,
