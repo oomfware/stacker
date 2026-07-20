@@ -8,12 +8,7 @@
 		"url": "https://codeberg.org/oomfware/stacker"
 	},
 	"files": [
-		"dist/",
-		"src/",
-		"!src/**/*.test.ts",
-		"!src/**/*.test.tsx",
-		"!src/**/*.test-d.ts",
-		"!src/test-support.ts"
+		"dist/"
 	],
 	"type": "module",
 	"types": "./dist/index.d.mts",
