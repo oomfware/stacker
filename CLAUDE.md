@@ -1,5 +1,4 @@
-@oomfware/stacker is a web-native, type-safe stacking router for react, built on the web navigation
-API and React's `<Activity>`. see README.md.
+@oomfware/stacker is a type-safe stack router for React.
 
 ## development notes
 
@@ -81,7 +80,7 @@ we use conventional commits with these rules:
 
 ### documentation
 
-"documentation" here means READMEs, code comments, and commit messages.
+"documentation" here means READMEs, code comments, JSDoc, and commit messages.
 
 - write in lowercase, except for proper nouns, acronyms, and 'I'. public-facing interfaces (web UI)
   are exempt
@@ -93,8 +92,10 @@ we use conventional commits with these rules:
   - `@param` for parameters (no dashes after param names)
   - `@returns` for return values
   - `@throws` for exceptions when applicable
-  - describe _what_, not _why_, unless the rationale affects how callers use the API (e.g. a
-    constraint). put other _why_ explanations in regular code comments next to the implementation
+  - document the caller-facing contract: _what_ the API does, not _how_. implementation details
+    (anything that could change without breaking callers) and _why_ explanations belong in regular
+    code comments; the exception is rationale that constrains callers, like a precondition, which
+    stays in the JSDoc
   - keep descriptions concise but informative
 
 ### agentic coding
