@@ -42,11 +42,11 @@ export interface HistoryLocation {
 }
 
 /**
- * how a history write treats the user's place on the page — scroll position and focus, which the browser
- * resets together and which a write therefore cannot sensibly split apart.
+ * how a history write treats the user's place on the page — scroll position and focus, which a write cannot
+ * sensibly split apart.
  *
- * - `auto` — a new screen. the browser restores scroll on a traversal or resets it on a push, and moves focus
- *   to the new content.
+ * - `auto` — a new screen. scroll is restored on a traversal if the offset is still known and reset to the top
+ *   otherwise, and focus moves to the new content.
  * - `preserve` — the same screen with different state, like an in-place parameter patch. scroll and focus are
  *   both left exactly where the user put them.
  */
@@ -68,12 +68,14 @@ export interface HistoryUpdate {
 	/** metadata passed to the write operation. */
 	readonly info: unknown;
 	readonly location: HistoryLocation;
+	/** viewport behavior, which listeners apply. */
+	readonly scroll: HistoryScrollBehavior;
 }
 
 /**
  * history update callback subscriber.
  *
- * listeners can return a promise to defer scroll restoration and focus resets.
+ * listeners can return a promise to defer focus resets.
  */
 export type HistoryListener = (update: HistoryUpdate) => void | Promise<void>;
 

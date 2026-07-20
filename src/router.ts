@@ -27,15 +27,26 @@ export interface RouterOptions<R extends RouteRegistry<unknown>> {
 	readonly pins?: readonly string[];
 	/** compiled route registry. */
 	readonly routes: R;
+	/** window whose scroll position the router restores, defaulting to the global one where there is one. */
+	readonly window?: Window;
+}
+
+/** a saved viewport offset. */
+interface ScrollPosition {
+	readonly x: number;
+	readonly y: number;
 }
 
 interface Entry {
 	readonly index: number;
 	readonly key: string;
 	readonly match: RouteMatch;
+	/** offset to put the viewport back at when this entry is traversed to. */
+	scrollPos: ScrollPosition;
 }
 
 const DefaultNotFound: ComponentType = () => null;
+const TOP: ScrollPosition = { x: 0, y: 0 };
 
 /**
  * manages navigation state, history subscriptions, and active views.
@@ -52,6 +63,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 	readonly #defaultFallback: ReactNode;
 	readonly #notFound: { leaf: ResolvedLeaf; node: ResolvedNode };
 	readonly #pins: ReadonlyMap<string, PoolEntry>;
+	readonly #win: Window | null;
 	readonly #updates = new SimpleEventEmitter<[]>();
 	readonly #unlisten: () => void;
 
@@ -73,20 +85,41 @@ export class Router<R extends RouteRegistry<unknown>> {
 		this.#notFound = makeNotFound(options.notFound ?? DefaultNotFound);
 		this.#pins = new Map((options.pins ?? []).map((name) => [name, this.#makePin(name)]));
 
+		this.#win = options.window ?? (typeof window === 'undefined' ? null : window);
+
 		const location = this.#history.location;
 		this.#activeKey = location.key;
-		this.#record(location);
+		this.#record(location, TOP);
 		this.#view = this.#recompute();
 
-		this.#unlisten = this.#history.listen(async ({ location: next }) => {
+		this.#unlisten = this.#history.listen(async ({ action, location: next, scroll }) => {
+			const win = this.#win;
+			const restoring = scroll === 'auto' && win !== null;
+			if (restoring) {
+				// the outgoing screen is still the one on screen here, before react re-renders.
+				const outgoing = this.#entries.get(this.#activeKey);
+				if (outgoing !== undefined) {
+					outgoing.scrollPos = { x: win.scrollX, y: win.scrollY };
+				}
+			}
+
 			this.#prune();
-			this.#record(next);
+			// only a traversal returns to a screen the user has already scrolled; a push opens a new one, and a
+			// replace reuses the outgoing slot, so the offset just saved under it is stale.
+			const saved = action === 'traverse' ? this.#entries.get(next.key)?.scrollPos : undefined;
+			const target = saved ?? TOP;
+			this.#record(next, target);
 			this.#activeKey = next.key;
 			this.#view = this.#recompute();
 			// register before notifying because subscribers may render synchronously.
 			const committed = this.#awaitCommit();
 			this.#updates.emit();
 			await committed;
+
+			if (restoring) {
+				// an app-wide `scroll-behavior: smooth` would otherwise animate this.
+				win.scrollTo({ behavior: 'instant', left: target.x, top: target.y });
+			}
 		});
 	}
 
@@ -309,8 +342,13 @@ export class Router<R extends RouteRegistry<unknown>> {
 		}
 	}
 
-	#record(location: HistoryLocation): void {
-		const entry: Entry = { index: location.index, key: location.key, match: this.#match(location) };
+	#record(location: HistoryLocation, scrollPos: ScrollPosition): void {
+		const entry: Entry = {
+			index: location.index,
+			key: location.key,
+			match: this.#match(location),
+			scrollPos,
+		};
 		this.#entries.set(location.key, entry);
 		this.#recency = [entry.key, ...this.#recency.filter((key) => key !== entry.key)];
 		const pin = this.#pins.get(entry.match.name);

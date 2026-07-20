@@ -166,17 +166,34 @@ describe('NavigationHistory', () => {
 			return input;
 		};
 
-		it('lets the browser reset scroll on a push and restore it on a traverse', async () => {
+		it('turns off the browser`s own scroll restoration, which the router replaces', async () => {
+			const { win } = await open();
+			expect(win.history.scrollRestoration).toBe('manual');
+		});
+
+		it('leaves the viewport where it is, reporting the behavior for the router to act on', async () => {
 			const { history, win } = await open();
 			win.document.body.style.height = '3000px';
 			win.scrollTo(0, 500);
 			expect(win.scrollY).toBe(500);
 
-			await written(history, () => history.push(`${PROBE}?n=a`));
-			await until(() => win.scrollY === 0, 'a push to scroll back to the top');
+			const pushed = await written(history, () => history.push(`${PROBE}?n=a`));
+			await sleep(100);
+			expect(pushed.scroll).toBe('auto');
+			expect(win.scrollY).toBe(500);
 
-			await written(history, () => history.back());
-			await until(() => win.scrollY === 500, 'a traversal to restore the entry`s scroll');
+			const traversed = await written(history, () => history.back());
+			await sleep(100);
+			expect(traversed.scroll).toBe('auto');
+			expect(win.scrollY).toBe(500);
+		});
+
+		it('reports a preserved write, so the router knows to leave the viewport alone', async () => {
+			const { history } = await open();
+
+			const update = await written(history, () => history.replace(`${PROBE}?q=ab`, { scroll: 'preserve' }));
+
+			expect(update.scroll).toBe('preserve');
 		});
 
 		it('lets the browser move focus off the old content on an ordinary write', async () => {

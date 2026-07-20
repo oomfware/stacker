@@ -31,6 +31,7 @@ export type {
 	HistoryListener,
 	HistoryLocation,
 	HistoryNavigateOptions,
+	HistoryScrollBehavior,
 	HistoryUpdate,
 } from './history/types.ts';
 export type { InstanceNode, View } from './view-model.ts';

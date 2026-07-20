@@ -78,14 +78,14 @@ export class MemoryHistory implements History {
 			options.state ?? null,
 		);
 		this.#entries = [...this.#entries.slice(0, this.#index), location];
-		this.#emit({ action: 'push', info: options.info, location });
+		this.#emit({ action: 'push', info: options.info, location, scroll: options.scroll ?? 'auto' });
 	}
 
 	replace(to: string, options: HistoryNavigateOptions = {}): void {
 		const current = this.#current();
 		const location = this.#make(to, current, this.#nextId(), current.key, this.#index, options.state ?? null);
 		this.#entries = this.#entries.with(this.#index, location);
-		this.#emit({ action: 'replace', info: options.info, location });
+		this.#emit({ action: 'replace', info: options.info, location, scroll: options.scroll ?? 'auto' });
 	}
 
 	traverseTo(key: string): void {
@@ -102,7 +102,7 @@ export class MemoryHistory implements History {
 			return;
 		}
 		this.#index = next;
-		this.#emit({ action: 'traverse', info: undefined, location: this.#current() });
+		this.#emit({ action: 'traverse', info: undefined, location: this.#current(), scroll: 'auto' });
 	}
 
 	back(): void {

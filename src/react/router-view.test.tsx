@@ -178,10 +178,15 @@ afterEach(() => {
 	}
 });
 
-const mount = async (): Promise<Mounted> => {
+const mount = async (max?: number): Promise<Mounted> => {
 	const win = await openProbe();
 	const router = disposed(
-		new Router({ history: new NavigationHistory({ window: win }), routes: probeRoutes }),
+		new Router({
+			history: new NavigationHistory({ window: win }),
+			max,
+			routes: probeRoutes,
+			window: win,
+		}),
 	);
 
 	const root = createRoot(win.document.body);
@@ -227,6 +232,21 @@ describe('RouterView on the navigation API', () => {
 		await committed(router, () => router.back());
 		await until(() => win.scrollY === 400, 'a traversal to restore the previous entry`s scroll');
 		expect(visibleScreen(win)).toBe('probe');
+	});
+
+	// offsets live on the warm entry, so an eviction takes the entry's saved offset with it.
+	it('opens an evicted entry at the top instead of its saved scroll', async () => {
+		const { router, win } = await mount(0);
+		win.scrollTo(0, 400);
+
+		await committed(router, () => router.push('/other'));
+		await until(() => win.scrollY === 0, 'a push to reset scroll to the top');
+
+		await committed(router, () => router.back());
+		await sleep(100);
+
+		expect(visibleScreen(win)).toBe('probe');
+		expect(win.scrollY).toBe(0);
 	});
 
 	it('does not disturb scroll on a setParams patch', async () => {

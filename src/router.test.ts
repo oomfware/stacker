@@ -424,15 +424,15 @@ describe('Router on the navigation API', () => {
 		}),
 	});
 
-	const open = async (): Promise<Router<typeof probeRoutes>> => {
-		const win = await openProbe();
-		return disposed(new Router({ history: new NavigationHistory({ window: win }), routes: probeRoutes }));
-	};
+	// the router reads and writes scroll on its own window, so it has to be pointed at the probe frame too.
+	const openOn = (win: Window): Router<typeof probeRoutes> =>
+		disposed(
+			new Router({ history: new NavigationHistory({ window: win }), routes: probeRoutes, window: win }),
+		);
 
-	const reload = async (): Promise<Router<typeof probeRoutes>> => {
-		const win = await reloadProbe();
-		return disposed(new Router({ history: new NavigationHistory({ window: win }), routes: probeRoutes }));
-	};
+	const open = async (): Promise<Router<typeof probeRoutes>> => openOn(await openProbe());
+
+	const reload = async (): Promise<Router<typeof probeRoutes>> => openOn(await reloadProbe());
 
 	const leafOf = (router: Router<typeof probeRoutes>): string | undefined => router.view.activePath.at(-1);
 

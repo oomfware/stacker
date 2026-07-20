@@ -74,6 +74,8 @@ export class NavigationHistory implements History {
 		this.#ignore = options.ignore;
 		this.#location = this.#read();
 		this.#nav.addEventListener('navigate', this.#onNavigate);
+
+		this.#win.history.scrollRestoration = 'manual';
 	}
 
 	get location(): HistoryLocation {
@@ -194,10 +196,10 @@ export class NavigationHistory implements History {
 		const preserve = scroll === 'preserve';
 		event.intercept({
 			focusReset: preserve ? 'manual' : 'after-transition',
-			scroll: preserve ? 'manual' : 'after-transition',
+			scroll: 'manual',
 			handler: async () => {
 				this.#location = this.#read();
-				const update: HistoryUpdate = { action, info, location: this.#location };
+				const update: HistoryUpdate = { action, info, location: this.#location, scroll };
 				await Promise.all([...this.#listeners].map(async (listener) => listener(update)));
 			},
 		});
