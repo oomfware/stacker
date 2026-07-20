@@ -63,6 +63,11 @@ describe('Builder', () => {
 		expect(builder.build('Post', { actor: 'alice', n: 42 })).toBe('/profile/alice/post/42');
 	});
 
+	it('encodes a separator in a path param so it cannot escape its segment', () => {
+		expect(builder.build('Profile', { actor: 'a/b' })).toBe('/profile/a%2Fb');
+		expect(builder.build('Post', { actor: 'a/b', n: 1 })).toBe('/profile/a%2Fb/post/1');
+	});
+
 	it('appends present query params', () => {
 		expect(builder.build('Search', { q: 'cats' })).toBe('/search?q=cats');
 		expect(builder.build('Search', { q: 'cats', type: 'user' })).toBe('/search?q=cats&type=user');
@@ -98,6 +103,7 @@ describe('Builder', () => {
 			const cases: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
 				['Feed', { sort: 'new' }],
 				['Post', { actor: 'bob', n: 7 }],
+				['Profile', { actor: 'a/b' }],
 				['Profile', { actor: 'alice' }],
 				['Search', { q: 'cats', type: 'feed' }],
 			];
