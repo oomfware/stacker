@@ -19,11 +19,11 @@ const ActiveProbe = () => {
 
 const TargetProbe = () => {
 	const target = hooks.useTarget();
-	const href = hooks.useHref();
+	const router = hooks.useRouter();
 	return (
 		<>
 			<p data-testid="target">{JSON.stringify(target)}</p>
-			<a data-testid="href" href={href({ actor: 'bob', name: 'Profile' })}>
+			<a data-testid="href" href={router.href({ actor: 'bob', name: 'Profile' })}>
 				bob
 			</a>
 		</>
@@ -31,9 +31,9 @@ const TargetProbe = () => {
 };
 
 const Home = () => {
-	const navigate = hooks.useNavigate();
+	const router = hooks.useRouter();
 	return (
-		<button onClick={() => navigate({ to: { actor: 'alice', name: 'Profile' } })} type="button">
+		<button onClick={() => router.navigate({ to: { actor: 'alice', name: 'Profile' } })} type="button">
 			go alice
 		</button>
 	);
@@ -79,7 +79,7 @@ const hooks = createRouterHooks(routes);
 const make = () => new Router({ history: new MemoryHistory({ initialEntries: ['/'] }), routes });
 
 describe('typed hooks', () => {
-	it('useNavigate navigates by route name with typed params', () => {
+	it('the typed router navigates by route name with typed params', () => {
 		const router = make();
 		render(<RouterView router={router} />);
 
@@ -139,7 +139,7 @@ describe('typed hooks', () => {
 		expect(screen.getByTestId('target')).toHaveTextContent('{"actor":"alice","name":"Profile"}');
 	});
 
-	it('useHref builds a URL for a target', () => {
+	it('the typed router builds a URL for a target', () => {
 		const router = make();
 		render(<RouterView router={router} />);
 
@@ -148,7 +148,7 @@ describe('typed hooks', () => {
 
 	it('throws when the router in context was built from a different registry', () => {
 		const Foreign = () => {
-			hooks.useNavigate();
+			hooks.useRouter();
 			return null;
 		};
 		const otherRoutes = defineRoutes({

@@ -14,6 +14,7 @@ import {
 	string,
 	useFocusEffect,
 	useIsFocused,
+	useLocation,
 } from '../src/index.ts';
 
 // the playground imports from source, so its `RouteMeta` augmentation targets this module.
@@ -147,8 +148,8 @@ const NotFound = () => <h2 data-testid="notfound">not found</h2>;
 
 const AppShell = () => {
 	const id = useMountId();
-	const location = hooks.useLocation();
-	const navigate = hooks.useNavigate();
+	const location = useLocation();
+	const router = hooks.useRouter();
 	return (
 		<div style={{ fontFamily: 'system-ui', padding: 16 }}>
 			<header
@@ -178,7 +179,7 @@ const AppShell = () => {
 					<Link to="/settings">settings</Link>
 					<button
 						data-testid="nav-carol"
-						onClick={() => navigate({ to: { actor: 'carol', name: 'Profile' } })}
+						onClick={() => router.navigate({ to: { actor: 'carol', name: 'Profile' } })}
 						type="button"
 					>
 						carol (typed)

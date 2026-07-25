@@ -213,17 +213,17 @@ generate type-safe hooks bound to your route configuration using `createRouterHo
 ```tsx
 import { createRouterHooks } from '@oomfware/stacker';
 
-const { useNavigate, useParams } = createRouterHooks(routes);
+const { useParams, useRouter } = createRouterHooks(routes);
 
 const Profile = () => {
 	const [{ actor }, replace] = useParams('Profile');
-	const navigate = useNavigate();
+	const router = useRouter();
 
 	return (
 		<>
 			<h1>@{actor}</h1>
 			<button onClick={() => replace({ tab: 'media' })}>media</button>
-			<button onClick={() => navigate({ to: { name: 'Settings' } })}>settings</button>
+			<button onClick={() => router.navigate({ to: { name: 'Settings' } })}>settings</button>
 		</>
 	);
 };
@@ -231,26 +231,33 @@ const Profile = () => {
 
 `useParams` hands back `replace` already bound to the route it names, so it takes the patch alone.
 
-the same factory provides `useHref` for building URLs and `useTarget` for reading the active route
-as a target:
+`useRouter` types the router against your registry, so `navigate`, `href` and the rest only accept
+targets your routes describe. call them on the router itself; they read state private to it, so they
+do not survive being pulled off the instance.
+
+the same factory provides `useTarget` for reading the active route as a target, which re-renders on
+navigation:
 
 ```tsx
-const { useHref, useTarget } = createRouterHooks(routes);
+const { useRouter, useTarget } = createRouterHooks(routes);
 
 const Nav = () => {
-	const href = useHref();
+	const router = useRouter();
 	const target = useTarget();
 
 	return (
 		<a
 			aria-current={target.name === 'Settings' ? 'page' : undefined}
-			href={href({ name: 'Settings' })}
+			href={router.href({ name: 'Settings' })}
 		>
 			settings
 		</a>
 	);
 };
 ```
+
+reach for `useParams` over `useTarget` inside a screen: warm screens stay mounted behind the active
+one, and only `useParams` reports the branch's own route rather than whichever one is active.
 
 the package also exports registry-free hooks (`useLocation`, `useRoute`, `useRouter`) for components
 that do not need type-safe route definitions.

@@ -91,16 +91,8 @@ export const useFocusEffect = (effect: EffectCallback): void => {
 
 /** typed hooks bound to a specific route registry. */
 export interface RouterHooks<R extends RouteRegistry<unknown>> {
-	/** returns a function that builds URLs for routes. */
-	useHref(): Router<R>['href'];
-	/** gets the current location. */
-	useLocation(): HistoryLocation;
-	/** returns a function to navigate to routes. */
-	useNavigate(): Router<R>['navigate'];
 	/** gets a route's parameters and a setter that patches its query in place. */
 	useParams<K extends RouteName<R>>(name: K): readonly [ParamsOf<R, K>, (patch: QueryPatchOf<R, K>) => void];
-	/** gets the active route match. */
-	useRoute(): RouteMatch;
 	/** gets the typed router instance. */
 	useRouter(): Router<R>;
 	/** gets the active route's name and parameters. */
@@ -109,6 +101,9 @@ export interface RouterHooks<R extends RouteRegistry<unknown>> {
 
 /**
  * generates typed hooks bound to a specific route registry.
+ *
+ * one-off reads of the router, like building a URL or navigating, go through {@link RouterHooks.useRouter}
+ * instead; only state a component has to re-render on gets a hook of its own.
  *
  * @param routes the compiled registry the hooks are typed against
  * @returns typed hooks record
@@ -129,24 +124,6 @@ export const createRouterHooks = <R extends RouteRegistry<unknown>>(routes: R): 
 	};
 
 	return {
-		useHref() {
-			const router = useTypedRouter();
-
-			return useMemo<Router<R>['href']>(() => {
-				return (target) => router.href(target);
-			}, [router]);
-		},
-
-		useLocation: useLocation,
-
-		useNavigate() {
-			const router = useTypedRouter();
-
-			return useMemo<Router<R>['navigate']>(() => {
-				return (options) => router.navigate(options);
-			}, [router]);
-		},
-
 		useParams<K extends RouteName<R>>(
 			name: K,
 		): readonly [ParamsOf<R, K>, (patch: QueryPatchOf<R, K>) => void] {
@@ -170,8 +147,6 @@ export const createRouterHooks = <R extends RouteRegistry<unknown>>(routes: R): 
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- guarded by the name check above
 			return [current.node.params as ParamsOf<R, K>, replace];
 		},
-
-		useRoute: useRoute,
 
 		useRouter: useTypedRouter,
 
