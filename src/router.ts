@@ -74,6 +74,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 	#view: View;
 	#commitWaiters: (() => void)[] = [];
 	#viewAttached = false;
+	#pendingScroll: ScrollPosition | null = null;
 
 	constructor(options: RouterOptions<R>) {
 		this.#history = options.history;
@@ -104,22 +105,25 @@ export class Router<R extends RouteRegistry<unknown>> {
 			}
 
 			this.#prune();
+
 			// only a traversal returns to a screen the user has already scrolled; a push opens a new one, and a
 			// replace reuses the outgoing slot, so the offset just saved under it is stale.
 			const saved = action === 'traverse' ? this.#entries.get(next.key)?.scrollPos : undefined;
 			const target = saved ?? TOP;
+
 			this.#record(next, target);
+
 			this.#activeKey = next.key;
 			this.#view = this.#recompute();
+			this.#pendingScroll = restoring ? target : null;
+
 			// register before notifying because subscribers may render synchronously.
 			const committed = this.#awaitCommit();
 			this.#updates.emit();
 			await committed;
 
-			if (restoring) {
-				// an app-wide `scroll-behavior: smooth` would otherwise animate this.
-				win.scrollTo({ behavior: 'instant', left: target.x, top: target.y });
-			}
+			// an attached view already applied this from inside the commit; this is the headless fallback.
+			this.restoreScroll();
 		});
 	}
 
@@ -297,6 +301,23 @@ export class Router<R extends RouteRegistry<unknown>> {
 		for (const resolve of this.#commitWaiters.splice(0)) {
 			resolve();
 		}
+	}
+
+	/**
+	 * applies the viewport offset the active navigation is waiting on, if any.
+	 *
+	 * `RouterView` calls this from a layout effect ordered ahead of every branch's, so a branch measures its
+	 * own offset rather than the outgoing screen's. a no-op with nothing pending.
+	 */
+	restoreScroll(): void {
+		const pending = this.#pendingScroll;
+		const win = this.#win;
+		if (pending === null || win === null) {
+			return;
+		}
+		this.#pendingScroll = null;
+		// an app-wide `scroll-behavior: smooth` would otherwise animate this.
+		win.scrollTo({ behavior: 'instant', left: pending.x, top: pending.y });
 	}
 
 	/** detaches history listeners and disposes resources. */

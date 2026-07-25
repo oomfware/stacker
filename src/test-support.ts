@@ -74,6 +74,9 @@ export const openProbe = async (): Promise<Window> => {
 	return windowOf(frame);
 };
 
+/** the window of the probe frame currently open, for code that cannot be handed one. */
+export const probeWindow = (): Window => windowOf(currentFrame());
+
 export const probeLoad = async (): Promise<Window> => {
 	const frame = currentFrame();
 	await new Promise((resolve) => frame.addEventListener('load', resolve, { once: true }));

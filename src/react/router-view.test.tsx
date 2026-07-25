@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
-import { act, use } from 'react';
+import { act, use, useLayoutEffect } from 'react';
 import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
@@ -12,9 +12,9 @@ import { NavigationHistory } from '../history/navigation.ts';
 import { Router } from '../router.ts';
 import { defineRoutes, layout, route } from '../routes.ts';
 import type { RouteRegistry } from '../routes.ts';
-import { disposed, openProbe, PROBE, settled, sleep, until } from '../test-support.ts';
+import { disposed, openProbe, PROBE, probeWindow, settled, sleep, until } from '../test-support.ts';
 
-import { useParams } from './hooks.ts';
+import { useIsFocused, useParams } from './hooks.ts';
 import { Outlet } from './outlet.tsx';
 import { RouterView } from './router-view.tsx';
 
@@ -145,11 +145,25 @@ describe('RouterView', () => {
 
 // #region navigation API
 
-const Screen = ({ label }: { readonly label: string }) => (
-	<div style={{ height: '3000px' }}>
-		<p data-testid="screen">{label}</p>
-	</div>
-);
+/** viewport offset each screen measured as it came on screen. */
+const focusScrolls: number[] = [];
+
+const Screen = ({ label }: { readonly label: string }) => {
+	const focused = useIsFocused();
+
+	// a layout effect on reveal is where a stale offset would bite.
+	useLayoutEffect(() => {
+		if (focused) {
+			focusScrolls.push(probeWindow().scrollY);
+		}
+	}, [focused]);
+
+	return (
+		<div style={{ height: '3000px' }}>
+			<p data-testid="screen">{label}</p>
+		</div>
+	);
+};
 
 const probeRoutes = defineRoutes({
 	app: layout({
@@ -176,6 +190,7 @@ afterEach(() => {
 	for (const root of roots.splice(0)) {
 		act(() => root.unmount());
 	}
+	focusScrolls.splice(0);
 });
 
 const mount = async (max?: number): Promise<Mounted> => {
@@ -220,7 +235,7 @@ describe('RouterView on the navigation API', () => {
 		expect(router.canGoBack).toBe(true);
 	});
 
-	it('restores the entry`s scroll once the new screen has committed', async () => {
+	it('restores the entry`s scroll before the incoming screen measures anything', async () => {
 		const { router, win } = await mount();
 		win.scrollTo(0, 400);
 		expect(win.scrollY).toBe(400);
@@ -232,6 +247,9 @@ describe('RouterView on the navigation API', () => {
 		await committed(router, () => router.back());
 		await until(() => win.scrollY === 400, 'a traversal to restore the previous entry`s scroll');
 		expect(visibleScreen(win)).toBe('probe');
+
+		// the mount, then one per navigation: each screen measured its own offset, never the outgoing one.
+		expect(focusScrolls).toEqual([0, 0, 400]);
 	});
 
 	// offsets live on the warm entry, so an eviction takes the entry's saved offset with it.

@@ -7,7 +7,7 @@ import { NavigationHistory } from './history/navigation.ts';
 import type { HistoryListener } from './history/types.ts';
 import { Router } from './router.ts';
 import { defineRoutes, layout, route } from './routes.ts';
-import { disposed, Dummy, openProbe, PROBE, reloadProbe, settled } from './test-support.ts';
+import { disposed, Dummy, openProbe, PROBE, reloadProbe, settled, until } from './test-support.ts';
 
 const csv = (): Codec<string[]> => ({
 	decode: (raw) => raw.split(','),
@@ -466,6 +466,21 @@ describe('Router on the navigation API', () => {
 		expect(leafOf(router)).toBe(atRoot);
 		expect(leafOf(router)).not.toBe(atA);
 		expect(router.canGoForward).toBe(true);
+	});
+
+	// with no view there is no commit to ride, so the router applies the offset itself.
+	it('restores the entry`s scroll with no view attached', async () => {
+		const win = await openProbe();
+		win.document.body.style.height = '3000px';
+		const router = openOn(win);
+		win.scrollTo(0, 400);
+		expect(win.scrollY).toBe(400);
+
+		await settled(router, () => router.push('/other'));
+		await until(() => win.scrollY === 0, 'a push to reset scroll to the top');
+
+		await settled(router, () => router.back());
+		await until(() => win.scrollY === 400, 'a traversal to restore the previous entry`s scroll');
 	});
 
 	it('keeps a page leaf warm across both a patch and an ordinary replace', async () => {

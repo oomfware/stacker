@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 
 import type { Router } from '../router.ts';
 import type { RouteRegistry } from '../routes.ts';
-import type { InstanceNode } from '../view-model.ts';
+import type { InstanceNode, View } from '../view-model.ts';
 
 import { ActiveChainContext, CurrentNodeContext, RouterContext } from './context.ts';
 
@@ -34,10 +34,28 @@ export const RouterView = <R extends RouteRegistry<unknown>>({
 	return (
 		<RouterContext value={router}>
 			<ActiveChainContext value={view.activePath}>
+				<ScrollRestorer router={router} view={view} />
 				<Pool nodes={view.roots} />
 			</ActiveChainContext>
 		</RouterContext>
 	);
+};
+
+// react finishes the whole mutation pass before any layout effect, then walks them in tree order, so
+// restoring from ahead of the pool lands after the incoming branch reaches full height but before it measures.
+const ScrollRestorer = <R extends RouteRegistry<unknown>>({
+	router,
+	view,
+}: {
+	readonly router: Router<R>;
+	/** keys the effect; nothing reads it. */
+	readonly view: View;
+}): null => {
+	useLayoutEffect(() => {
+		router.restoreScroll();
+	}, [router, view]);
+
+	return null;
 };
 
 export const Pool = ({ nodes }: { readonly nodes: readonly InstanceNode[] }): ReactElement => {
