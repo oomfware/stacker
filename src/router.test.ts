@@ -60,7 +60,7 @@ describe('Router', () => {
 			});
 			const before = router.view;
 
-			router.push('/page');
+			router.navigate({ to: '/page' });
 
 			expect(notified).toBe(1);
 			expect(router.view).not.toBe(before);
@@ -78,7 +78,7 @@ describe('Router', () => {
 		it('keeps a pinned singleton in the pool when navigated away', () => {
 			const router = make(['/'], ['Home']);
 
-			router.push('/page');
+			router.navigate({ to: '/page' });
 
 			const childIds = router.view.roots[0]!.children.map((child) => child.node.id);
 			expect(childIds).toContain('app.Home');
@@ -90,8 +90,8 @@ describe('Router', () => {
 
 			expect(router.view.roots[0]!.children.map((child) => child.node.id)).not.toContain('app.Home');
 
-			router.push('/');
-			router.push('/tab');
+			router.navigate({ to: '/' });
+			router.navigate({ to: '/tab' });
 
 			expect(router.view.roots[0]!.children.map((child) => child.node.id)).toContain('app.Home');
 		});
@@ -143,7 +143,7 @@ describe('Router', () => {
 
 			expect(router.target).toBe(before);
 
-			router.push('/page');
+			router.navigate({ to: '/page' });
 
 			expect(router.target).not.toBe(before);
 			expect(router.target).toEqual({ name: 'Page' });
@@ -203,7 +203,7 @@ describe('Router', () => {
 			const router = make(['/']);
 			const target = router.match('/feed?q=cats');
 
-			router.navigate(target!);
+			router.navigate({ to: target! });
 
 			expect(router.location.pathname + router.location.search).toBe('/feed?q=cats&sort=hot');
 		});
@@ -274,7 +274,7 @@ describe('Router', () => {
 
 			const replaced = make(['/feed?q=cats']);
 			const beforeReplace = activeLeaf(replaced);
-			replaced.replace('/feed?q=dogs');
+			replaced.navigate({ replace: true, to: '/feed?q=dogs' });
 			expect(activeLeaf(replaced)).toBe(beforeReplace);
 		});
 
@@ -282,7 +282,7 @@ describe('Router', () => {
 			const router = make(['/feed?q=cats']);
 			const before = activeLeaf(router);
 
-			router.push('/feed?q=dogs');
+			router.navigate({ to: '/feed?q=dogs' });
 
 			expect(activeLeaf(router)).not.toBe(before);
 		});
@@ -291,17 +291,50 @@ describe('Router', () => {
 			const router = make(['/feed?q=cats']);
 			const before = activeLeaf(router);
 
-			router.replace('/page');
+			router.navigate({ replace: true, to: '/page' });
 
 			expect(activeLeaf(router)).not.toBe(before);
+		});
+	});
+
+	describe('navigate', () => {
+		it('pushes by default, and replaces on request', () => {
+			const router = make(['/']);
+
+			router.navigate({ to: { actor: 'alice', name: 'Profile' } });
+
+			expect(router.location.pathname).toBe('/profile/alice');
+			expect(router.location.index).toBe(1);
+
+			router.navigate({ replace: true, to: { name: 'Page' } });
+
+			expect(router.location.pathname).toBe('/page');
+			expect(router.location.index).toBe(1);
+		});
+
+		it('takes a URL for a destination a target cannot spell', () => {
+			const router = make(['/profile/alice']);
+
+			router.navigate({ to: '?tab=likes' });
+
+			expect(router.location.pathname).toBe('/profile/alice');
+			expect(router.location.search).toBe('?tab=likes');
+		});
+
+		it('passes entry state through to history', () => {
+			const router = make(['/']);
+
+			router.navigate({ state: { anchor: 42 }, to: { name: 'Page' } });
+
+			expect(router.location.state).toEqual({ anchor: 42 });
 		});
 	});
 
 	describe('popTo', () => {
 		it('traverses back to the nearest matching entry instead of pushing a duplicate', () => {
 			const router = make(['/']);
-			router.push('/page');
-			router.push('/profile/alice');
+			router.navigate({ to: '/page' });
+			router.navigate({ to: '/profile/alice' });
 
 			router.popTo({ name: 'Page' });
 
@@ -312,9 +345,9 @@ describe('Router', () => {
 
 		it('matches the nearest entry, not the oldest', () => {
 			const router = make(['/profile/alice']);
-			router.push('/page');
-			router.push('/profile/bob');
-			router.push('/search?q=x');
+			router.navigate({ to: '/page' });
+			router.navigate({ to: '/profile/bob' });
+			router.navigate({ to: '/search?q=x' });
 
 			router.popTo({ actor: 'bob', name: 'Profile' });
 
@@ -324,7 +357,7 @@ describe('Router', () => {
 
 		it('stays put when already on the target, rather than stacking a duplicate', () => {
 			const router = make(['/']);
-			router.push('/page');
+			router.navigate({ to: '/page' });
 
 			router.popTo({ name: 'Page' });
 
@@ -335,7 +368,7 @@ describe('Router', () => {
 
 		it('pushes when no entry behind us matches', () => {
 			const router = make(['/']);
-			router.push('/profile/alice');
+			router.navigate({ to: '/profile/alice' });
 
 			router.popTo({ name: 'Page' });
 
@@ -346,7 +379,7 @@ describe('Router', () => {
 
 		it('matches on route state, so params must agree', () => {
 			const router = make(['/profile/alice']);
-			router.push('/page');
+			router.navigate({ to: '/page' });
 
 			router.popTo({ actor: 'bob', name: 'Profile' });
 
@@ -356,7 +389,7 @@ describe('Router', () => {
 
 		it('matches across query encodings and ordering, since it reads route state, not URL text', () => {
 			const router = make(['/feed?sort=new&q=a%20b']);
-			router.push('/page');
+			router.navigate({ to: '/page' });
 
 			router.popTo({ name: 'Feed', q: 'a b', sort: 'new' });
 
@@ -366,7 +399,7 @@ describe('Router', () => {
 
 		it('matches an entry whose params decode to objects', () => {
 			const router = make(['/tags?tags=a,b']);
-			router.push('/page');
+			router.navigate({ to: '/page' });
 
 			router.popTo({ name: 'Tags', tags: ['a', 'b'] });
 
@@ -376,7 +409,7 @@ describe('Router', () => {
 
 		it('pushes when an object-decoding param genuinely differs', () => {
 			const router = make(['/tags?tags=a,b']);
-			router.push('/page');
+			router.navigate({ to: '/page' });
 
 			router.popTo({ name: 'Tags', tags: ['a', 'c'] });
 
@@ -399,9 +432,9 @@ describe('Router', () => {
 			const off = subscribe(() => {
 				seen += 1;
 			});
-			router.push('/page');
+			router.navigate({ to: '/page' });
 			off();
-			router.push('/feed');
+			router.navigate({ to: '/feed' });
 
 			expect(seen).toBe(1);
 		});
@@ -434,7 +467,7 @@ describe('Router', () => {
 			const router = new Router({ history, routes });
 			router.attachView();
 
-			router.push('/page');
+			router.navigate({ to: '/page' });
 			expect(history.pending).toHaveLength(1);
 
 			router.dispose();
@@ -470,7 +503,7 @@ describe('Router splat navigation', () => {
 		const built = router.build({ name: 'Docs', rest: 'guide/intro' });
 		expect(built).toBe('/docs/guide/intro');
 
-		router.push(built);
+		router.navigate({ to: built });
 		expect(router.location.pathname).toBe('/docs/guide/intro');
 		expect(leafIs(router, 'Docs')).toBe(true);
 	});
@@ -480,14 +513,14 @@ describe('Router splat navigation', () => {
 		expect(() => router.build({ name: 'Docs', rest: '../admin' })).toThrow();
 
 		// the escape it forecloses: had the build succeeded, this is where the URL would have landed.
-		router.push('/docs/../admin');
+		router.navigate({ to: '/docs/../admin' });
 		expect(router.location.pathname).toBe('/admin');
 		expect(leafIs(router, 'Admin')).toBe(true);
 	});
 
 	it('falls through to the bare parent route when the remainder is empty', () => {
 		const router = open();
-		router.push('/docs');
+		router.navigate({ to: '/docs' });
 		expect(leafIs(router, 'DocsIndex')).toBe(true);
 	});
 });
@@ -526,7 +559,7 @@ describe('Router on the navigation API', () => {
 		const router = await open();
 		const before = leafOf(router);
 
-		await settled(router, () => router.push(`${PROBE}?q=a`));
+		await settled(router, () => router.navigate({ to: `${PROBE}?q=a` }));
 
 		expect(router.location.search).toBe('?q=a');
 		expect(router.canGoBack).toBe(true);
@@ -536,7 +569,7 @@ describe('Router on the navigation API', () => {
 	it('restores the entry`s warm screen on a back', async () => {
 		const router = await open();
 		const atRoot = leafOf(router);
-		await settled(router, () => router.push(`${PROBE}?q=a`));
+		await settled(router, () => router.navigate({ to: `${PROBE}?q=a` }));
 		const atA = leafOf(router);
 
 		await settled(router, () => router.back());
@@ -555,7 +588,7 @@ describe('Router on the navigation API', () => {
 		win.scrollTo(0, 400);
 		expect(win.scrollY).toBe(400);
 
-		await settled(router, () => router.push('/other'));
+		await settled(router, () => router.navigate({ to: '/other' }));
 		await until(() => win.scrollY === 0, 'a push to reset scroll to the top');
 
 		await settled(router, () => router.back());
@@ -571,7 +604,7 @@ describe('Router on the navigation API', () => {
 
 		const replaced = await open();
 		const beforeReplace = leafOf(replaced);
-		await settled(replaced, () => replaced.replace(`${PROBE}?q=replaced`));
+		await settled(replaced, () => replaced.navigate({ replace: true, to: `${PROBE}?q=replaced` }));
 		expect(replaced.location.search).toBe('?q=replaced');
 		expect(leafOf(replaced)).toBe(beforeReplace);
 	});
@@ -589,8 +622,8 @@ describe('Router on the navigation API', () => {
 
 	it('popTo traverses back to an existing entry instead of pushing a duplicate', async () => {
 		const router = await open();
-		await settled(router, () => router.push('/other'));
-		await settled(router, () => router.push(`${PROBE}?q=z`));
+		await settled(router, () => router.navigate({ to: '/other' }));
+		await settled(router, () => router.navigate({ to: `${PROBE}?q=z` }));
 		expect(router.location.index).toBe(2);
 
 		await settled(router, () => router.popTo({ name: 'Other' }));
@@ -602,8 +635,8 @@ describe('Router on the navigation API', () => {
 
 	it('popTo reaches an entry pushed before a reload', async () => {
 		const stale = await open();
-		await settled(stale, () => stale.push('/other'));
-		await settled(stale, () => stale.push(`${PROBE}?q=z`));
+		await settled(stale, () => stale.navigate({ to: '/other' }));
+		await settled(stale, () => stale.navigate({ to: `${PROBE}?q=z` }));
 
 		const router = await reload();
 		expect(router.location.index).toBe(2);
@@ -616,11 +649,11 @@ describe('Router on the navigation API', () => {
 
 	it('follows the browser when a push from a non-tip entry truncates the forward entries', async () => {
 		const router = await open();
-		await settled(router, () => router.push(`${PROBE}?q=a`));
-		await settled(router, () => router.push(`${PROBE}?q=b`));
+		await settled(router, () => router.navigate({ to: `${PROBE}?q=a` }));
+		await settled(router, () => router.navigate({ to: `${PROBE}?q=b` }));
 		await settled(router, () => router.back());
 
-		await settled(router, () => router.push('/other'));
+		await settled(router, () => router.navigate({ to: '/other' }));
 
 		expect(router.canGoForward).toBe(false);
 		expect(router.route.name).toBe('Other');

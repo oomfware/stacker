@@ -37,7 +37,7 @@ export type {
 	HistoryUpdate,
 } from './history/types.ts';
 export type { InstanceNode, View } from './view-model.ts';
-export type { RouterOptions } from './router.ts';
+export type { NavigateOptions, RouterOptions } from './router.ts';
 export { Router } from './router.ts';
 export { RouterView } from './react/router-view.tsx';
 export { Outlet } from './react/outlet.tsx';

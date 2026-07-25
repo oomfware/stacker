@@ -178,7 +178,7 @@ const AppShell = () => {
 					<Link to="/settings">settings</Link>
 					<button
 						data-testid="nav-carol"
-						onClick={() => navigate({ actor: 'carol', name: 'Profile' })}
+						onClick={() => navigate({ to: { actor: 'carol', name: 'Profile' } })}
 						type="button"
 					>
 						carol (typed)

@@ -76,7 +76,7 @@ describe('RouterView', () => {
 		render(<RouterView router={router} />);
 		expect(screen.getByText('home page')).toBeInTheDocument();
 
-		act(() => router.push('/profile/bob'));
+		act(() => router.navigate({ to: '/profile/bob' }));
 
 		expect(screen.getByText('profile bob')).toBeInTheDocument();
 		expect(screen.getByText('shell')).toBeInTheDocument();
@@ -229,7 +229,7 @@ describe('RouterView on the navigation API', () => {
 	it('renders the new screen after a navigation', async () => {
 		const { router, win } = await mount();
 
-		await committed(router, () => router.push('/other'));
+		await committed(router, () => router.navigate({ to: '/other' }));
 
 		expect(visibleScreen(win)).toBe('other');
 		expect(router.canGoBack).toBe(true);
@@ -240,7 +240,7 @@ describe('RouterView on the navigation API', () => {
 		win.scrollTo(0, 400);
 		expect(win.scrollY).toBe(400);
 
-		await committed(router, () => router.push('/other'));
+		await committed(router, () => router.navigate({ to: '/other' }));
 		await until(() => win.scrollY === 0, 'a push to reset scroll to the top');
 		expect(visibleScreen(win)).toBe('other');
 
@@ -257,7 +257,7 @@ describe('RouterView on the navigation API', () => {
 		const { router, win } = await mount(0);
 		win.scrollTo(0, 400);
 
-		await committed(router, () => router.push('/other'));
+		await committed(router, () => router.navigate({ to: '/other' }));
 		await until(() => win.scrollY === 0, 'a push to reset scroll to the top');
 
 		await committed(router, () => router.back());

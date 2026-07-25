@@ -47,11 +47,7 @@ export const Link = ({ children, onClick, replace, to, ...rest }: LinkProps): Re
 					return;
 				}
 				event.preventDefault();
-				if (replace) {
-					router.replace(to);
-				} else {
-					router.push(to);
-				}
+				router.navigate({ replace, to });
 			}}
 			{...rest}
 		>

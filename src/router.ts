@@ -5,7 +5,7 @@ import { Builder } from './build.ts';
 import type { LooseTarget } from './build.ts';
 import type { CacheEntryRef } from './cache.ts';
 import { computeCachedKeys } from './cache.ts';
-import type { History, HistoryLocation } from './history/types.ts';
+import type { History, HistoryLocation, HistoryNavigateOptions } from './history/types.ts';
 import { Matcher } from './match.ts';
 import type { RouteMatch } from './match.ts';
 import type {
@@ -19,6 +19,14 @@ import type {
 import { createPath, parsePath, resolvePath } from './url.ts';
 import { computeView } from './view-model.ts';
 import type { PoolEntry, View } from './view-model.ts';
+
+/** options for a navigation. */
+export interface NavigateOptions<R extends RouteRegistry<unknown>> extends HistoryNavigateOptions {
+	/** replace the active history entry instead. */
+	readonly replace?: boolean;
+	/** where to go */
+	readonly to: RouteTarget<R> | string;
+}
 
 /** options for the router constructor. */
 export interface RouterOptions<R extends RouteRegistry<unknown>> {
@@ -190,16 +198,6 @@ export class Router<R extends RouteRegistry<unknown>> {
 		return this.#updates.subscribe(listener);
 	};
 
-	/** pushes a new location onto the history stack. */
-	push(to: string): void {
-		this.#history.push(to);
-	}
-
-	/** replaces the current location on the history stack. */
-	replace(to: string): void {
-		this.#history.replace(to);
-	}
-
 	/**
 	 * builds the URL for a route.
 	 *
@@ -213,7 +211,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 	/**
 	 * matches a URL against the route registry, without navigating to it.
 	 *
-	 * the URL is resolved against the active location, the same way {@link push} resolves it.
+	 * the URL is resolved against the active location, the same way {@link navigate} resolves it.
 	 *
 	 * @param to destination relative URL
 	 * @returns the target it resolves to, or undefined when no route matches
@@ -228,10 +226,16 @@ export class Router<R extends RouteRegistry<unknown>> {
 	/**
 	 * navigates to a route.
 	 *
-	 * @param target route name and parameters
+	 * @param options where to go, and how to get there
 	 */
-	navigate(target: RouteTarget<R>): void {
-		this.push(this.#builder.build(target));
+	navigate(options: NavigateOptions<R>): void {
+		const { replace = false, to, ...rest } = options;
+		const url = typeof to === 'string' ? to : this.#builder.build(to);
+		if (replace) {
+			this.#history.replace(url, rest);
+		} else {
+			this.#history.push(url, rest);
+		}
 	}
 
 	/**
@@ -259,7 +263,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 				}
 			}
 		}
-		this.push(url);
+		this.#history.push(url);
 	}
 
 	/**
