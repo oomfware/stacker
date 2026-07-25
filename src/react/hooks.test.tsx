@@ -17,6 +17,19 @@ const ActiveProbe = () => {
 	return <p data-testid="active">{`${active.name} ${JSON.stringify(active.params)}`}</p>;
 };
 
+const TargetProbe = () => {
+	const target = hooks.useTarget();
+	const href = hooks.useHref();
+	return (
+		<>
+			<p data-testid="target">{JSON.stringify(target)}</p>
+			<a data-testid="href" href={href({ actor: 'bob', name: 'Profile' })}>
+				bob
+			</a>
+		</>
+	);
+};
+
 const Home = () => {
 	const navigate = hooks.useNavigate();
 	return (
@@ -54,6 +67,7 @@ const routes = defineRoutes({
 		component: () => (
 			<>
 				<ActiveProbe />
+				<TargetProbe />
 				<Outlet />
 			</>
 		),
@@ -113,6 +127,23 @@ describe('typed hooks', () => {
 
 		act(() => router.setParams({ tab: 'media' }));
 		expect(screen.getByTestId('active')).toHaveTextContent('Profile {"actor":"alice","tab":"media"}');
+	});
+
+	it('useTarget reports the active route as a target, and tracks navigation', () => {
+		const router = make();
+		render(<RouterView router={router} />);
+		expect(screen.getByTestId('target')).toHaveTextContent('{"name":"Home"}');
+
+		act(() => router.navigate({ to: { actor: 'alice', name: 'Profile' } }));
+
+		expect(screen.getByTestId('target')).toHaveTextContent('{"actor":"alice","name":"Profile"}');
+	});
+
+	it('useHref builds a URL for a target', () => {
+		const router = make();
+		render(<RouterView router={router} />);
+
+		expect(screen.getByTestId('href')).toHaveAttribute('href', '/profile/bob');
 	});
 
 	it('throws when the router in context was built from a different registry', () => {

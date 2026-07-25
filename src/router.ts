@@ -204,7 +204,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 	 * @param target route name and parameters
 	 * @returns relative URL
 	 */
-	build(target: RouteTarget<R>): string {
+	href(target: RouteTarget<R>): string {
 		return this.#builder.build(target);
 	}
 

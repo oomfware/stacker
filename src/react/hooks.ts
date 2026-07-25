@@ -4,7 +4,7 @@ import type { EffectCallback } from 'react';
 import type { HistoryLocation } from '../history/types.ts';
 import type { RouteMatch } from '../match.ts';
 import type { Router } from '../router.ts';
-import type { ParamsOf, QueryPatchOf, RouteName, RouteRegistry } from '../routes.ts';
+import type { MatchedTarget, ParamsOf, QueryPatchOf, RouteName, RouteRegistry } from '../routes.ts';
 
 import { CurrentNodeContext, RouterContext } from './context.ts';
 
@@ -91,8 +91,8 @@ export const useFocusEffect = (effect: EffectCallback): void => {
 
 /** typed hooks bound to a specific route registry. */
 export interface RouterHooks<R extends RouteRegistry<unknown>> {
-	/** returns a function to build URLs. */
-	useBuild(): Router<R>['build'];
+	/** returns a function that builds URLs for routes. */
+	useHref(): Router<R>['href'];
 	/** gets the current location. */
 	useLocation(): HistoryLocation;
 	/** returns a function to navigate to routes. */
@@ -103,6 +103,8 @@ export interface RouterHooks<R extends RouteRegistry<unknown>> {
 	useRoute(): RouteMatch;
 	/** gets the typed router instance. */
 	useRouter(): Router<R>;
+	/** gets the active route's name and parameters. */
+	useTarget(): MatchedTarget<R>;
 }
 
 /**
@@ -127,11 +129,11 @@ export const createRouterHooks = <R extends RouteRegistry<unknown>>(routes: R): 
 	};
 
 	return {
-		useBuild() {
+		useHref() {
 			const router = useTypedRouter();
 
-			return useMemo<Router<R>['build']>(() => {
-				return (name, ...args) => router.build(name, ...args);
+			return useMemo<Router<R>['href']>(() => {
+				return (target) => router.href(target);
 			}, [router]);
 		},
 
@@ -141,7 +143,7 @@ export const createRouterHooks = <R extends RouteRegistry<unknown>>(routes: R): 
 			const router = useTypedRouter();
 
 			return useMemo<Router<R>['navigate']>(() => {
-				return (name, ...args) => router.navigate(name, ...args);
+				return (options) => router.navigate(options);
 			}, [router]);
 		},
 
@@ -172,6 +174,11 @@ export const createRouterHooks = <R extends RouteRegistry<unknown>>(routes: R): 
 		useRoute: useRoute,
 
 		useRouter: useTypedRouter,
+
+		useTarget() {
+			const router = useTypedRouter();
+			return useSyncExternalStore(router.subscribe, () => router.target);
+		},
 	};
 };
 

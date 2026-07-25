@@ -500,7 +500,7 @@ describe('Router splat navigation', () => {
 
 	it('round trips a built splat URL through navigation', () => {
 		const router = open();
-		const built = router.build({ name: 'Docs', rest: 'guide/intro' });
+		const built = router.href({ name: 'Docs', rest: 'guide/intro' });
 		expect(built).toBe('/docs/guide/intro');
 
 		router.navigate({ to: built });
@@ -510,7 +510,7 @@ describe('Router splat navigation', () => {
 
 	it('cannot build a URL that navigation would redirect into a sibling route', () => {
 		const router = open();
-		expect(() => router.build({ name: 'Docs', rest: '../admin' })).toThrow();
+		expect(() => router.href({ name: 'Docs', rest: '../admin' })).toThrow();
 
 		// the escape it forecloses: had the build succeeded, this is where the URL would have landed.
 		router.navigate({ to: '/docs/../admin' });
