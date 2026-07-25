@@ -130,14 +130,37 @@ describe('Router', () => {
 		});
 	});
 
+	describe('route and target', () => {
+		it('reports the active route as a target, decoding path and query params', () => {
+			const router = make(['/feed?q=cats']);
+
+			expect(router.target).toEqual({ name: 'Feed', q: 'cats', sort: 'hot' });
+		});
+
+		it('hands out one target identity per entry, so a store subscription settles', () => {
+			const router = make(['/feed']);
+			const before = router.target;
+
+			expect(router.target).toBe(before);
+
+			router.push('/page');
+
+			expect(router.target).not.toBe(before);
+			expect(router.target).toEqual({ name: 'Page' });
+		});
+
+		it('exposes the matched chain on the active route, so meta resolves off it', () => {
+			const router = make(['/profile/alice']);
+
+			expect(router.route.chain.map((matched) => matched.node.id)).toEqual(['app', 'app.Profile']);
+		});
+	});
+
 	describe('match', () => {
-		it('resolves a URL to its route, decoding path and query params', () => {
+		it('resolves a URL to a target, decoding path and query params', () => {
 			const router = make(['/']);
 
-			const match = router.match('/feed?q=cats');
-
-			expect(match?.name).toBe('Feed');
-			expect(match?.params).toEqual({ q: 'cats', sort: 'hot' });
+			expect(router.match('/feed?q=cats')).toEqual({ name: 'Feed', q: 'cats', sort: 'hot' });
 		});
 
 		it('leaves the router where it was, notifying nobody', () => {
@@ -172,16 +195,17 @@ describe('Router', () => {
 		it('resolves a relative URL against the active location, as a push would', () => {
 			const router = make(['/profile/alice']);
 
-			expect(router.match('bob')?.params).toEqual({ actor: 'bob' });
+			expect(router.match('bob')).toEqual({ actor: 'bob', name: 'Profile' });
 			expect(router.match('?tab=likes')?.name).toBe('Profile');
 		});
 
-		it('exposes the matched chain, so meta resolves off it', () => {
+		it('yields a target that navigating back to it accepts', () => {
 			const router = make(['/']);
+			const target = router.match('/feed?q=cats');
 
-			const match = router.match('/profile/alice');
+			router.navigate(target!);
 
-			expect(match?.chain.map((matched) => matched.node.id)).toEqual(['app', 'app.Profile']);
+			expect(router.location.pathname + router.location.search).toBe('/feed?q=cats&sort=hot');
 		});
 	});
 
@@ -279,7 +303,7 @@ describe('Router', () => {
 			router.push('/page');
 			router.push('/profile/alice');
 
-			router.popTo('Page');
+			router.popTo({ name: 'Page' });
 
 			expect(router.location.pathname).toBe('/page');
 			expect(router.location.index).toBe(1);
@@ -292,7 +316,7 @@ describe('Router', () => {
 			router.push('/profile/bob');
 			router.push('/search?q=x');
 
-			router.popTo('Profile', { actor: 'bob' });
+			router.popTo({ actor: 'bob', name: 'Profile' });
 
 			expect(router.location.pathname).toBe('/profile/bob');
 			expect(router.location.index).toBe(2);
@@ -302,7 +326,7 @@ describe('Router', () => {
 			const router = make(['/']);
 			router.push('/page');
 
-			router.popTo('Page');
+			router.popTo({ name: 'Page' });
 
 			expect(router.location.pathname).toBe('/page');
 			expect(router.location.index).toBe(1);
@@ -313,7 +337,7 @@ describe('Router', () => {
 			const router = make(['/']);
 			router.push('/profile/alice');
 
-			router.popTo('Page');
+			router.popTo({ name: 'Page' });
 
 			expect(router.location.pathname).toBe('/page');
 			expect(router.location.index).toBe(2);
@@ -324,7 +348,7 @@ describe('Router', () => {
 			const router = make(['/profile/alice']);
 			router.push('/page');
 
-			router.popTo('Profile', { actor: 'bob' });
+			router.popTo({ actor: 'bob', name: 'Profile' });
 
 			expect(router.location.pathname).toBe('/profile/bob');
 			expect(router.location.index).toBe(2);
@@ -334,7 +358,7 @@ describe('Router', () => {
 			const router = make(['/feed?sort=new&q=a%20b']);
 			router.push('/page');
 
-			router.popTo('Feed', { q: 'a b', sort: 'new' });
+			router.popTo({ name: 'Feed', q: 'a b', sort: 'new' });
 
 			expect(router.location.pathname).toBe('/feed');
 			expect(router.location.index).toBe(0);
@@ -344,7 +368,7 @@ describe('Router', () => {
 			const router = make(['/tags?tags=a,b']);
 			router.push('/page');
 
-			router.popTo('Tags', { tags: ['a', 'b'] });
+			router.popTo({ name: 'Tags', tags: ['a', 'b'] });
 
 			expect(router.location.pathname).toBe('/tags');
 			expect(router.location.index).toBe(0);
@@ -354,7 +378,7 @@ describe('Router', () => {
 			const router = make(['/tags?tags=a,b']);
 			router.push('/page');
 
-			router.popTo('Tags', { tags: ['a', 'c'] });
+			router.popTo({ name: 'Tags', tags: ['a', 'c'] });
 
 			expect(router.location.pathname).toBe('/tags');
 			expect(router.location.index).toBe(2);
@@ -443,7 +467,7 @@ describe('Router splat navigation', () => {
 
 	it('round trips a built splat URL through navigation', () => {
 		const router = open();
-		const built = router.build('Docs', { rest: 'guide/intro' });
+		const built = router.build({ name: 'Docs', rest: 'guide/intro' });
 		expect(built).toBe('/docs/guide/intro');
 
 		router.push(built);
@@ -453,7 +477,7 @@ describe('Router splat navigation', () => {
 
 	it('cannot build a URL that navigation would redirect into a sibling route', () => {
 		const router = open();
-		expect(() => router.build('Docs', { rest: '../admin' })).toThrow();
+		expect(() => router.build({ name: 'Docs', rest: '../admin' })).toThrow();
 
 		// the escape it forecloses: had the build succeeded, this is where the URL would have landed.
 		router.push('/docs/../admin');
@@ -569,7 +593,7 @@ describe('Router on the navigation API', () => {
 		await settled(router, () => router.push(`${PROBE}?q=z`));
 		expect(router.location.index).toBe(2);
 
-		await settled(router, () => router.popTo('Other'));
+		await settled(router, () => router.popTo({ name: 'Other' }));
 
 		expect(router.route.name).toBe('Other');
 		expect(router.location.index).toBe(1);
@@ -584,7 +608,7 @@ describe('Router on the navigation API', () => {
 		const router = await reload();
 		expect(router.location.index).toBe(2);
 
-		await settled(router, () => router.popTo('Other'));
+		await settled(router, () => router.popTo({ name: 'Other' }));
 
 		expect(router.route.name).toBe('Other');
 		expect(router.location.index).toBe(1);

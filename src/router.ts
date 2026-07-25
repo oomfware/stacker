@@ -2,13 +2,20 @@ import { SimpleEventEmitter } from '@mary-ext/simple-event-emitter';
 import type { ComponentType, ReactNode } from 'react';
 
 import { Builder } from './build.ts';
-import type { BuildArgs } from './build.ts';
+import type { LooseTarget } from './build.ts';
 import type { CacheEntryRef } from './cache.ts';
 import { computeCachedKeys } from './cache.ts';
 import type { History, HistoryLocation } from './history/types.ts';
 import { Matcher } from './match.ts';
 import type { RouteMatch } from './match.ts';
-import type { ResolvedLeaf, ResolvedNode, RouteLeaf, RouteName, RouteRegistry } from './routes.ts';
+import type {
+	MatchedTarget,
+	ResolvedLeaf,
+	ResolvedNode,
+	RouteLeaf,
+	RouteRegistry,
+	RouteTarget,
+} from './routes.ts';
 import { createPath, parsePath, resolvePath } from './url.ts';
 import { computeView } from './view-model.ts';
 import type { PoolEntry, View } from './view-model.ts';
@@ -43,6 +50,8 @@ interface Entry {
 	readonly match: RouteMatch;
 	/** offset to put the viewport back at when this entry is traversed to. */
 	scrollPos: ScrollPosition;
+	/** the match as a target. */
+	readonly target: LooseTarget;
 }
 
 const DefaultNotFound: ComponentType = () => null;
@@ -137,9 +146,15 @@ export class Router<R extends RouteRegistry<unknown>> {
 		return this.#history.location;
 	}
 
-	/** active route match details. */
+	/** active route match details, including the matched chain that `resolveMeta` takes. */
 	get route(): RouteMatch {
 		return this.#active().match;
+	}
+
+	/** the active route's name and parameters. */
+	get target(): MatchedTarget<R> {
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- built from the registry's own match
+		return this.#active().target as MatchedTarget<R>;
 	}
 
 	/** whether backward history is available. */
@@ -186,14 +201,13 @@ export class Router<R extends RouteRegistry<unknown>> {
 	}
 
 	/**
-	 * generates a URL for a route.
+	 * builds the URL for a route.
 	 *
-	 * @param name route name
-	 * @param args route parameters
+	 * @param target route name and parameters
 	 * @returns relative URL
 	 */
-	build<K extends RouteName<R>>(name: K, ...args: BuildArgs<R, K>): string {
-		return this.#builder.build(name, ...args);
+	build(target: RouteTarget<R>): string {
+		return this.#builder.build(target);
 	}
 
 	/**
@@ -202,35 +216,35 @@ export class Router<R extends RouteRegistry<unknown>> {
 	 * the URL is resolved against the active location, the same way {@link push} resolves it.
 	 *
 	 * @param to destination relative URL
-	 * @returns the match, or undefined when no route matches
+	 * @returns the target it resolves to, or undefined when no route matches
 	 */
-	match(to: string): RouteMatch | undefined {
+	match(to: string): MatchedTarget<R> | undefined {
 		const { hash, pathname, search } = resolvePath(to, this.#history.location);
-		return this.#matcher.match(pathname, search, hash);
+		const match = this.#matcher.match(pathname, search, hash);
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- built from the registry's own match
+		return match === undefined ? undefined : (toTarget(match) as MatchedTarget<R>);
 	}
 
 	/**
 	 * navigates to a route.
 	 *
-	 * @param name route name
-	 * @param args route parameters
+	 * @param target route name and parameters
 	 */
-	navigate<K extends RouteName<R>>(name: K, ...args: BuildArgs<R, K>): void {
-		this.push(this.#builder.build(name, ...args));
+	navigate(target: RouteTarget<R>): void {
+		this.push(this.#builder.build(target));
 	}
 
 	/**
 	 * returns to the nearest existing history entry for a route, or pushes if none exists.
 	 *
-	 * @param name route name
-	 * @param args route parameters
+	 * @param to route target, or a relative URL resolved against the active location
 	 */
-	popTo<K extends RouteName<R>>(name: K, ...args: BuildArgs<R, K>): void {
-		const url = this.#builder.build(name, ...args);
-		const { hash, pathname, search } = parsePath(url);
-		const target = this.#matcher.match(pathname, search, hash);
-		if (target !== undefined) {
-			const wanted = this.#canonical(target);
+	popTo(to: RouteTarget<R> | string): void {
+		const url = typeof to === 'string' ? to : this.#builder.build(to);
+		const { hash, pathname, search } = resolvePath(url, this.#history.location);
+		const wantedMatch = this.#matcher.match(pathname, search, hash);
+		if (wantedMatch !== undefined) {
+			const wanted = this.#canonical(wantedMatch);
 			const entries = this.#history.entries();
 			for (let i = this.#history.location.index; i >= 0; i--) {
 				const entry = entries[i];
@@ -239,7 +253,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 				}
 				const parts = parsePath(entry.url);
 				const match = this.#matcher.match(parts.pathname, parts.search, parts.hash);
-				if (match !== undefined && match.name === target.name && this.#canonical(match) === wanted) {
+				if (match !== undefined && match.name === wantedMatch.name && this.#canonical(match) === wanted) {
 					this.#history.traverseTo(entry.key);
 					return;
 				}
@@ -377,11 +391,13 @@ export class Router<R extends RouteRegistry<unknown>> {
 	}
 
 	#record(location: HistoryLocation, scrollPos: ScrollPosition): void {
+		const match = this.#match(location);
 		const entry: Entry = {
 			index: location.index,
 			key: location.key,
-			match: this.#match(location),
+			match,
 			scrollPos,
+			target: toTarget(match),
 		};
 		this.#entries.set(location.key, entry);
 		this.#recency = [entry.key, ...this.#recency.filter((key) => key !== entry.key)];
@@ -446,6 +462,9 @@ export class Router<R extends RouteRegistry<unknown>> {
 		};
 	}
 }
+
+// a route cannot declare a param named `name`, so the route name never collides with one.
+const toTarget = (match: RouteMatch): LooseTarget => ({ ...match.params, name: match.name });
 
 const makeNotFound = (component: ComponentType): { leaf: ResolvedLeaf; node: ResolvedNode } => {
 	const leafNode: RouteLeaf = { component, kind: 'route', params: {}, path: '*', query: {}, type: 'page' };

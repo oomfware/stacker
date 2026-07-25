@@ -20,7 +20,7 @@ const ActiveProbe = () => {
 const Home = () => {
 	const navigate = hooks.useNavigate();
 	return (
-		<button onClick={() => navigate('Profile', { actor: 'alice' })} type="button">
+		<button onClick={() => navigate({ actor: 'alice', name: 'Profile' })} type="button">
 			go alice
 		</button>
 	);
@@ -78,7 +78,7 @@ describe('typed hooks', () => {
 	it('useParams reports the patched query without a new history entry', () => {
 		const router = make();
 		render(<RouterView router={router} />);
-		act(() => router.navigate('Profile', { actor: 'alice' }));
+		act(() => router.navigate({ actor: 'alice', name: 'Profile' }));
 		const before = router.location;
 
 		act(() => router.setParams({ tab: 'media' }));
@@ -92,7 +92,7 @@ describe('typed hooks', () => {
 	it('the useParams setter patches the active route query in place', () => {
 		const router = make();
 		render(<RouterView router={router} />);
-		act(() => router.navigate('Profile', { actor: 'alice' }));
+		act(() => router.navigate({ actor: 'alice', name: 'Profile' }));
 		const before = router.location;
 
 		act(() => screen.getByText('set media').click());
@@ -108,7 +108,7 @@ describe('typed hooks', () => {
 		render(<RouterView router={router} />);
 		expect(screen.getByTestId('active')).toHaveTextContent('Home {}');
 
-		act(() => router.navigate('Profile', { actor: 'alice' }));
+		act(() => router.navigate({ actor: 'alice', name: 'Profile' }));
 		expect(screen.getByTestId('active')).toHaveTextContent('Profile {"actor":"alice"}');
 
 		act(() => router.setParams({ tab: 'media' }));
@@ -236,7 +236,7 @@ describe('useFocusEffect', () => {
 		const router = makeFocus();
 		render(<RouterView router={router} />);
 
-		act(() => router.navigate('Away'));
+		act(() => router.navigate({ name: 'Away' }));
 
 		expect(blur.mock.calls).toEqual([[0]]);
 		expect(focus.mock.calls).toEqual([[0]]);
@@ -275,7 +275,7 @@ describe('a title, built out of useFocusEffect', () => {
 		render(<RouterView router={router} />);
 		expect(document.title).toBe('titled');
 
-		act(() => router.navigate('Away'));
+		act(() => router.navigate({ name: 'Away' }));
 
 		expect(document.title).toBe('away');
 

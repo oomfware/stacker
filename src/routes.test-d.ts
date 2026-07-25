@@ -2,7 +2,7 @@ import { expectTypeOf, test } from 'vitest';
 
 import type { Codec } from './codec.ts';
 import { enumOf, optional, string, withDefault } from './codec.ts';
-import type { BuildParamsOf, ParamsOf, RouteName } from './routes.ts';
+import type { BuildParamsOf, MatchedTarget, ParamsOf, RouteName, RouteTarget } from './routes.ts';
 import { defineRoutes, layout, route } from './routes.ts';
 
 type Did = `did:${string}:${string}`;
@@ -59,4 +59,30 @@ test('route registry inference', () => {
 
 	expectTypeOf<ParamsOf<R, 'Feed'>>().toEqualTypeOf<{ sort: 'hot' | 'new' }>();
 	expectTypeOf<BuildParamsOf<R, 'Feed'>>().toEqualTypeOf<{ sort?: 'hot' | 'new' }>();
+});
+
+test('route targets', () => {
+	expectTypeOf<RouteTarget<R>>().toEqualTypeOf<
+		| { readonly name: 'Feed'; sort?: 'hot' | 'new' }
+		| { readonly name: 'Home' }
+		| { readonly name: 'PostThread'; didOrHandle: ActorId; rkey: string }
+		| { readonly name: 'Search'; q: string; type?: 'feed' | 'profile' | 'user' }
+	>();
+
+	// decoding fills in a query param's default, so a matched target always has it.
+	expectTypeOf<MatchedTarget<R>>().toEqualTypeOf<
+		| { readonly name: 'Feed'; sort: 'hot' | 'new' }
+		| { readonly name: 'Home' }
+		| { readonly name: 'PostThread'; didOrHandle: ActorId; rkey: string }
+		| { readonly name: 'Search'; q: string; type?: 'feed' | 'profile' | 'user' }
+	>();
+
+	// so you can navigate straight back to a matched target.
+	expectTypeOf<MatchedTarget<R>>().toExtend<RouteTarget<R>>();
+
+	expectTypeOf<Extract<RouteTarget<R>, { name: 'PostThread' }>>().toEqualTypeOf<{
+		readonly name: 'PostThread';
+		didOrHandle: ActorId;
+		rkey: string;
+	}>();
 });

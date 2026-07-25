@@ -5,6 +5,7 @@ export type {
 	LayoutConfig,
 	LayoutNode,
 	LeafType,
+	MatchedTarget,
 	ParamsOf,
 	QueryPatchOf,
 	ReadonlyURLSearchParams,
@@ -17,6 +18,7 @@ export type {
 	RouteName,
 	RouteNode,
 	RouteRegistry,
+	RouteTarget,
 	WhenContext,
 } from './routes.ts';
 export { defineRoutes, layout, route } from './routes.ts';

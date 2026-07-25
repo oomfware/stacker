@@ -1,14 +1,12 @@
 import { getDefault, isOptional } from './codec.ts';
 import { splitSplat } from './routes.ts';
-import type { BuildParamsOf, RouteName, RouteRegistry } from './routes.ts';
+import type { RouteRegistry, RouteTarget } from './routes.ts';
 import { createPath, encodeRemainder, encodeSegment } from './url.ts';
 
 const SEGMENT = /:([A-Za-z_]\w*)/g;
 
-export type BuildArgs<R, K extends RouteName<R>> =
-	Record<never, never> extends BuildParamsOf<R, K>
-		? [params?: BuildParamsOf<R, K>]
-		: [params: BuildParamsOf<R, K>];
+/** a route target with the registry type erased. */
+export type LooseTarget = { readonly name: string } & Readonly<Record<string, unknown>>;
 
 export class Builder<R extends RouteRegistry<unknown> = RouteRegistry<unknown>> {
 	readonly #registry: R;
@@ -17,8 +15,10 @@ export class Builder<R extends RouteRegistry<unknown> = RouteRegistry<unknown>> 
 		this.#registry = registry;
 	}
 
-	build<K extends RouteName<R>>(name: K, ...args: BuildArgs<R, K>): string {
-		return this.buildPath(name, args[0] ?? {});
+	build(target: RouteTarget<R>): string {
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- every member of the union has this shape
+		const { name, ...params } = target as LooseTarget;
+		return this.buildPath(name, params);
 	}
 
 	buildPath(name: string, params: Readonly<Record<string, unknown>> = {}): string {

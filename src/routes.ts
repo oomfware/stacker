@@ -286,6 +286,10 @@ export const defineRoutes = <const T>(tree: T & ValidRoutes<T>): RouteRegistry<T
 					throw new Error(`stacker: route '${key}' declares '${queryKey}' as both a path and query param`);
 				}
 			}
+			// a route target holds params next to `name`, so a param called `name` has nowhere to go.
+			if ('name' in params || 'name' in query) {
+				throw new Error(`stacker: route '${key}' must not declare a param named 'name'`);
+			}
 			for (const ancestor of chain) {
 				if (ancestor.kind !== 'layout') {
 					continue;
@@ -341,8 +345,25 @@ type LeafQueryPatch<L> =
 		? Prettify<{ readonly [P in keyof Q]?: Infer<Q[P]> | undefined }>
 		: never;
 
+type LeafTarget<K, L> = Prettify<{ readonly name: K } & LeafBuild<L>>;
+type LeafMatched<K, L> = Prettify<{ readonly name: K } & LeafDecode<L>>;
+
 /** a union of all navigable route names. */
 export type RouteName<R> = keyof LeavesMap<R> & string;
+
+/**
+ * a route name plus the parameters needed to reach it. `href`, `navigate`, and `popTo` all take one.
+ *
+ * narrow the union on `name` to get at a specific route's parameters.
+ */
+export type RouteTarget<R> = { [K in RouteName<R>]: LeafTarget<K, LeavesMap<R>[K]> }[RouteName<R>];
+
+/**
+ * what matching a URL gives back: a route name plus its decoded parameters.
+ *
+ * unlike {@link RouteTarget}, query params with a default are always present.
+ */
+export type MatchedTarget<R> = { [K in RouteName<R>]: LeafMatched<K, LeavesMap<R>[K]> }[RouteName<R>];
 
 /** the decoded parameter shape for a route name. */
 export type ParamsOf<R, K extends RouteName<R>> = LeafDecode<LeavesMap<R>[K]>;

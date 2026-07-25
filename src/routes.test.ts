@@ -111,6 +111,17 @@ describe('defineRoutes', () => {
 			).toThrow(/both a path and query/);
 		});
 
+		it('rejects a param called `name`, which a route target has no room for', () => {
+			expect(() =>
+				defineRoutes({
+					X: route({ component: Dummy, params: { name: string() }, path: '/x/:name' }),
+				}),
+			).toThrow(/must not declare a param named 'name'/);
+			expect(() =>
+				defineRoutes({ X: route({ component: Dummy, path: '/x', query: { name: string() } }) }),
+			).toThrow(/must not declare a param named 'name'/);
+		});
+
 		it('rejects a duplicate route name across the tree', () => {
 			expect(() =>
 				defineRoutes({
