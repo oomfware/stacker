@@ -130,6 +130,61 @@ describe('Router', () => {
 		});
 	});
 
+	describe('match', () => {
+		it('resolves a URL to its route, decoding path and query params', () => {
+			const router = make(['/']);
+
+			const match = router.match('/feed?q=cats');
+
+			expect(match?.name).toBe('Feed');
+			expect(match?.params).toEqual({ q: 'cats', sort: 'hot' });
+		});
+
+		it('leaves the router where it was, notifying nobody', () => {
+			const router = make(['/']);
+			let notified = 0;
+			router.subscribe(() => {
+				notified += 1;
+			});
+			const before = router.view;
+
+			router.match('/page');
+
+			expect(notified).toBe(0);
+			expect(router.view).toBe(before);
+			expect(router.location.pathname).toBe('/');
+			expect(router.canGoBack).toBe(false);
+		});
+
+		it('reports an unroutable URL rather than falling back to notFound', () => {
+			const router = make(['/']);
+
+			expect(router.match('/totally/unknown')).toBeUndefined();
+		});
+
+		it('rejects a URL missing a required query param', () => {
+			const router = make(['/']);
+
+			expect(router.match('/search')).toBeUndefined();
+			expect(router.match('/search?q=cats')?.name).toBe('Search');
+		});
+
+		it('resolves a relative URL against the active location, as a push would', () => {
+			const router = make(['/profile/alice']);
+
+			expect(router.match('bob')?.params).toEqual({ actor: 'bob' });
+			expect(router.match('?tab=likes')?.name).toBe('Profile');
+		});
+
+		it('exposes the matched chain, so meta resolves off it', () => {
+			const router = make(['/']);
+
+			const match = router.match('/profile/alice');
+
+			expect(match?.chain.map((matched) => matched.node.id)).toEqual(['app', 'app.Profile']);
+		});
+	});
+
 	describe('setParams', () => {
 		it('patches a query param without materializing defaults or dropping the hash', () => {
 			const router = make(['/feed#section']);

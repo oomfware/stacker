@@ -9,7 +9,7 @@ import type { History, HistoryLocation } from './history/types.ts';
 import { Matcher } from './match.ts';
 import type { RouteMatch } from './match.ts';
 import type { ResolvedLeaf, ResolvedNode, RouteLeaf, RouteName, RouteRegistry } from './routes.ts';
-import { createPath, parsePath } from './url.ts';
+import { createPath, parsePath, resolvePath } from './url.ts';
 import { computeView } from './view-model.ts';
 import type { PoolEntry, View } from './view-model.ts';
 
@@ -194,6 +194,19 @@ export class Router<R extends RouteRegistry<unknown>> {
 	 */
 	build<K extends RouteName<R>>(name: K, ...args: BuildArgs<R, K>): string {
 		return this.#builder.build(name, ...args);
+	}
+
+	/**
+	 * matches a URL against the route registry, without navigating to it.
+	 *
+	 * the URL is resolved against the active location, the same way {@link push} resolves it.
+	 *
+	 * @param to destination relative URL
+	 * @returns the match, or undefined when no route matches
+	 */
+	match(to: string): RouteMatch | undefined {
+		const { hash, pathname, search } = resolvePath(to, this.#history.location);
+		return this.#matcher.match(pathname, search, hash);
 	}
 
 	/**
