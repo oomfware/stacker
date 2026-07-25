@@ -62,7 +62,7 @@ const Home = () => {
 
 const Profile = () => {
 	const id = useMountId();
-	const [{ actor, tab }, setParams] = hooks.useParams('Profile');
+	const [{ actor, tab }, replace] = hooks.useParams('Profile');
 	useTitle(`profile: ${actor} · stacker`);
 	return (
 		<section>
@@ -71,8 +71,8 @@ const Profile = () => {
 			</h2>
 			<div>
 				tab: <code data-testid="profile-tab">{tab ?? '(none)'}</code>{' '}
-				<button data-testid="set-tab" onClick={() => setParams({ tab: 'media' })} type="button">
-					setParams tab=media
+				<button data-testid="set-tab" onClick={() => replace({ tab: 'media' })} type="button">
+					replace tab=media
 				</button>
 			</div>
 			<input data-testid="profile-input" placeholder="type, navigate away, come back" size={40} />

@@ -10,9 +10,11 @@ import { Matcher } from './match.ts';
 import type { RouteMatch } from './match.ts';
 import type {
 	MatchedTarget,
+	QueryPatchOf,
 	ResolvedLeaf,
 	ResolvedNode,
 	RouteLeaf,
+	RouteName,
 	RouteRegistry,
 	RouteTarget,
 } from './routes.ts';
@@ -267,27 +269,35 @@ export class Router<R extends RouteRegistry<unknown>> {
 	}
 
 	/**
-	 * updates query parameters in-place without pushing a new entry.
+	 * patches the active route's query params in place, without pushing a new entry.
 	 *
+	 * params the patch does not mention keep their values; setting one to `undefined` drops it from the URL.
+	 * keys the route does not declare are ignored.
+	 *
+	 * @param name the active route's name, which types the patch
 	 * @param patch query parameter changes
+	 * @throws when `name` is not the active route
 	 */
-	setParams(patch: Readonly<Record<string, unknown>>): void {
-		const active = this.#entries.get(this.#activeKey);
-		const leaf = active === undefined ? undefined : this.#routes.leaves.get(active.match.name);
+	replace<K extends RouteName<R>>(name: K, patch: QueryPatchOf<R, K>): void {
+		const active = this.#active();
+		if (active.match.name !== name) {
+			throw new Error(`stacker: replace('${name}') called under route '${active.match.name}'`);
+		}
+		const leaf = this.#routes.leaves.get(name);
 		if (leaf === undefined) {
-			return;
+			throw new Error(`stacker: unknown route '${name}'`);
 		}
 		const location = this.#history.location;
 		const search = new URLSearchParams(location.search);
-		for (const [name, value] of Object.entries(patch)) {
-			const codec = leaf.query[name];
+		for (const [param, value] of Object.entries(patch)) {
+			const codec = leaf.query[param];
 			if (codec === undefined) {
 				continue;
 			}
 			if (value === undefined) {
-				search.delete(name);
+				search.delete(param);
 			} else {
-				search.set(name, codec.encode(value));
+				search.set(param, codec.encode(value));
 			}
 		}
 		const query = search.toString();

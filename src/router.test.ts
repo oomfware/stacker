@@ -209,11 +209,11 @@ describe('Router', () => {
 		});
 	});
 
-	describe('setParams', () => {
+	describe('replace', () => {
 		it('patches a query param without materializing defaults or dropping the hash', () => {
 			const router = make(['/feed#section']);
 
-			router.setParams({ q: 'cats' });
+			router.replace('Feed', { q: 'cats' });
 
 			expect(router.location.search).toBe('?q=cats');
 			expect(router.location.hash).toBe('#section');
@@ -222,7 +222,7 @@ describe('Router', () => {
 		it('removes a query param when set to undefined', () => {
 			const router = make(['/feed?q=cats']);
 
-			router.setParams({ q: undefined });
+			router.replace('Feed', { q: undefined });
 
 			expect(router.location.search).toBe('');
 		});
@@ -230,8 +230,18 @@ describe('Router', () => {
 		it('ignores keys that are not query params of the active route', () => {
 			const router = make(['/feed']);
 
-			router.setParams({ notARealParam: 'x' });
+			// @ts-expect-error the typed API rejects a key the route does not declare.
+			router.replace('Feed', { notARealParam: 'x' });
 
+			expect(router.location.search).toBe('');
+		});
+
+		it('throws when the named route is not the active one', () => {
+			const router = make(['/feed']);
+
+			expect(() => router.replace('Search', { q: 'cats' })).toThrow(
+				/replace\('Search'\) called under route 'Feed'/,
+			);
 			expect(router.location.search).toBe('');
 		});
 
@@ -239,7 +249,7 @@ describe('Router', () => {
 			const router = make(['/feed?q=cats']);
 			const before = router.location;
 
-			router.setParams({ q: 'dogs' });
+			router.replace('Feed', { q: 'dogs' });
 
 			expect(router.location.key).toBe(before.key);
 			expect(router.location.index).toBe(before.index);
@@ -251,7 +261,7 @@ describe('Router', () => {
 			history.replace('/feed', { state: { scrollAnchor: 42 } });
 			const router = new Router({ history, routes });
 
-			router.setParams({ q: 'cats' });
+			router.replace('Feed', { q: 'cats' });
 
 			expect(router.location.state).toEqual({ scrollAnchor: 42 });
 		});
@@ -260,7 +270,7 @@ describe('Router', () => {
 			const router = make(['/search?q=cats']);
 			const before = activeLeaf(router);
 
-			router.setParams({ q: 'dogs' });
+			router.replace('Search', { q: 'dogs' });
 
 			expect(router.location.search).toBe('?q=dogs');
 			expect(activeLeaf(router)).toBe(before);
@@ -269,7 +279,7 @@ describe('Router', () => {
 		it('keeps a page leaf warm across both a patch and an ordinary replace', () => {
 			const patched = make(['/feed?q=cats']);
 			const beforePatch = activeLeaf(patched);
-			patched.setParams({ q: 'dogs' });
+			patched.replace('Feed', { q: 'dogs' });
 			expect(activeLeaf(patched)).toBe(beforePatch);
 
 			const replaced = make(['/feed?q=cats']);
@@ -598,7 +608,7 @@ describe('Router on the navigation API', () => {
 	it('keeps a page leaf warm across both a patch and an ordinary replace', async () => {
 		const patched = await open();
 		const beforePatch = leafOf(patched);
-		await settled(patched, () => patched.setParams({ q: 'patched' }));
+		await settled(patched, () => patched.replace('Probe', { q: 'patched' }));
 		expect(patched.location.search).toBe('?q=patched');
 		expect(leafOf(patched)).toBe(beforePatch);
 
@@ -613,7 +623,7 @@ describe('Router on the navigation API', () => {
 		const router = await open();
 		const before = router.location;
 
-		await settled(router, () => router.setParams({ q: 'x' }));
+		await settled(router, () => router.replace('Probe', { q: 'x' }));
 
 		expect(router.location.key).toBe(before.key);
 		expect(router.location.index).toBe(before.index);

@@ -40,13 +40,13 @@ const Home = () => {
 };
 
 const Profile = () => {
-	const [{ actor, tab }, setParams] = hooks.useParams('Profile');
+	const [{ actor, tab }, replace] = hooks.useParams('Profile');
 	return (
 		<>
 			<p>
 				profile {actor} tab={tab ?? 'none'}
 			</p>
-			<button onClick={() => setParams({ tab: 'media' })} type="button">
+			<button onClick={() => replace({ tab: 'media' })} type="button">
 				set media
 			</button>
 		</>
@@ -95,7 +95,7 @@ describe('typed hooks', () => {
 		act(() => router.navigate({ to: { actor: 'alice', name: 'Profile' } }));
 		const before = router.location;
 
-		act(() => router.setParams({ tab: 'media' }));
+		act(() => router.replace('Profile', { tab: 'media' }));
 
 		expect(screen.getByText(/tab=media/)).toBeInTheDocument();
 		expect(router.location.key).toBe(before.key);
@@ -125,7 +125,7 @@ describe('typed hooks', () => {
 		act(() => router.navigate({ to: { actor: 'alice', name: 'Profile' } }));
 		expect(screen.getByTestId('active')).toHaveTextContent('Profile {"actor":"alice"}');
 
-		act(() => router.setParams({ tab: 'media' }));
+		act(() => router.replace('Profile', { tab: 'media' }));
 		expect(screen.getByTestId('active')).toHaveTextContent('Profile {"actor":"alice","tab":"media"}');
 	});
 

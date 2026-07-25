@@ -267,11 +267,11 @@ describe('RouterView on the navigation API', () => {
 		expect(win.scrollY).toBe(0);
 	});
 
-	it('does not disturb scroll on a setParams patch', async () => {
+	it('does not disturb scroll on a replace patch', async () => {
 		const { router, win } = await mount();
 		win.scrollTo(0, 400);
 
-		await committed(router, () => router.setParams({ q: 'patched' }));
+		await committed(router, () => router.replace('Probe', { q: 'patched' }));
 		await sleep(100);
 
 		expect(router.location.search).toBe('?q=patched');

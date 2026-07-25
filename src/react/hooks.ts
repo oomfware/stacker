@@ -154,9 +154,9 @@ export const createRouterHooks = <R extends RouteRegistry<unknown>>(routes: R): 
 
 			const current = useContext(CurrentNodeContext);
 
-			const setParams = useMemo<(patch: QueryPatchOf<R, K>) => void>(() => {
-				return (patch) => router.setParams(patch);
-			}, [router]);
+			const replace = useMemo<(patch: QueryPatchOf<R, K>) => void>(() => {
+				return (patch) => router.replace(name, patch);
+			}, [name, router]);
 
 			if (current === null) {
 				throw new Error('stacker: useParams must be used within a route component');
@@ -168,7 +168,7 @@ export const createRouterHooks = <R extends RouteRegistry<unknown>>(routes: R): 
 			}
 
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- guarded by the name check above
-			return [current.node.params as ParamsOf<R, K>, setParams];
+			return [current.node.params as ParamsOf<R, K>, replace];
 		},
 
 		useRoute: useRoute,
