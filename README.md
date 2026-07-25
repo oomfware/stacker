@@ -153,25 +153,58 @@ use `<Link>` to route in-app:
 
 plain `<a>` elements also route in-app automatically under `NavigationHistory`.
 
-drive the router imperatively using either URLs or type-safe route names and parameters:
+drive the router imperatively with a _route target_: a route name and its parameters in one object,
+type-checked against the registry.
 
 ```ts
-// string-based navigation
-router.push('/profile/alice');
-router.replace('/profile/alice');
+router.navigate({ to: { name: 'Profile', actor: 'alice' } });
+router.navigate({ to: { name: 'Profile', actor: 'alice' }, replace: true });
 
-// name-based navigation (type-checked)
-router.navigate('Profile', { actor: 'alice' });
-router.build('Profile', { actor: 'alice' }); // -> "/profile/alice"
+// a URL works too, for destinations the registry cannot spell
+router.navigate({ to: '/profile/alice' });
 
-// history manipulation
-router.popTo('Messages');
-router.setParams({ tab: 'media' });
+// without navigating
+router.href({ name: 'Profile', actor: 'alice' }); // -> "/profile/alice"
+router.match('/profile/alice'); // -> { name: 'Profile', actor: 'alice' }
+
+// returns to the nearest entry for the route, pushing if there is none
+router.popTo({ name: 'Messages' });
 router.back();
 ```
 
-`setParams` replaces the current history entry, preserving scroll and focus. undeclared query keys
-are ignored.
+`navigate` passes `info`, `scroll` and `state` to the history entry. `scroll` defaults to `'auto'` —
+top on a push, saved offset on a traversal; `'preserve'` holds the viewport and focus still.
+
+`router.replace` patches the active route's query params in place, reusing the history entry so the
+scroll offset and the focused element survive:
+
+```ts
+router.replace('Profile', { tab: 'media' }); // -> /profile/alice?tab=media
+router.replace('Profile', { tab: undefined }); // -> /profile/alice
+```
+
+unmentioned params keep their values, undeclared keys are ignored, and naming a route other than the
+one on screen throws.
+
+a route target is a discriminated union, so narrowing on `name` narrows the params with it:
+
+```ts
+import type { RouteTarget } from '@oomfware/stacker';
+
+const label = (target: RouteTarget<typeof routes>): string => {
+	switch (target.name) {
+		case 'Profile': {
+			return `@${target.actor}`;
+		}
+		default: {
+			return 'stacker';
+		}
+	}
+};
+```
+
+because a target spells its params alongside `name`, a route cannot declare a param called `name`;
+`defineRoutes` rejects it.
 
 ### hooks
 
@@ -183,15 +216,38 @@ import { createRouterHooks } from '@oomfware/stacker';
 const { useNavigate, useParams } = createRouterHooks(routes);
 
 const Profile = () => {
-	const [{ actor }, setParams] = useParams('Profile');
+	const [{ actor }, replace] = useParams('Profile');
 	const navigate = useNavigate();
 
 	return (
 		<>
 			<h1>@{actor}</h1>
-			<button onClick={() => setParams({ tab: 'media' })}>media</button>
-			<button onClick={() => navigate('Settings')}>settings</button>
+			<button onClick={() => replace({ tab: 'media' })}>media</button>
+			<button onClick={() => navigate({ to: { name: 'Settings' } })}>settings</button>
 		</>
+	);
+};
+```
+
+`useParams` hands back `replace` already bound to the route it names, so it takes the patch alone.
+
+the same factory provides `useHref` for building URLs and `useTarget` for reading the active route
+as a target:
+
+```tsx
+const { useHref, useTarget } = createRouterHooks(routes);
+
+const Nav = () => {
+	const href = useHref();
+	const target = useTarget();
+
+	return (
+		<a
+			aria-current={target.name === 'Settings' ? 'page' : undefined}
+			href={href({ name: 'Settings' })}
+		>
+			settings
+		</a>
 	);
 };
 ```
