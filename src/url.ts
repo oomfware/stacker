@@ -29,6 +29,20 @@ export const resolvePath = (to: string, base: PathParts): PathParts => {
 	return { hash: resolved.hash, pathname: resolved.pathname, search: resolved.search };
 };
 
+// a path segment can hold pchar characters as-is (RFC 3986): unreserved, sub-delims, ':' and '@'.
+// `encodeURIComponent` escapes most of them anyway, which only makes URLs harder to read.
+const OUTSIDE_PCHAR = /[^\w!$&'()*+,\-.:;=@~]+/gu;
+
+/**
+ * percent-encodes a value so that it stays inside one path segment.
+ *
+ * @param value the raw value
+ * @returns the encoded segment
+ */
+export const encodeSegment = (value: string): string => {
+	return value.replaceAll(OUTSIDE_PCHAR, (chunk) => encodeURIComponent(chunk));
+};
+
 /**
  * decodes a splat remainder one segment at a time, so that separators survive decoding.
  *
@@ -37,7 +51,12 @@ export const resolvePath = (to: string, base: PathParts): PathParts => {
 export const decodeRemainder = (raw: string): string => raw.split('/').map(decodeURIComponent).join('/');
 
 /** encodes a splat remainder one segment at a time, the inverse of {@link decodeRemainder}. */
-export const encodeRemainder = (value: string): string => value.split('/').map(encodeURIComponent).join('/');
+export const encodeRemainder = (value: string): string => {
+	return value
+		.split('/')
+		.map((segment) => encodeSegment(segment))
+		.join('/');
+};
 
 export const createPath = ({ hash, pathname, search }: PathParts): string => {
 	let out = pathname || '/';

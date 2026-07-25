@@ -68,6 +68,22 @@ describe('Builder', () => {
 		expect(builder.build('Post', { actor: 'a/b', n: 1 })).toBe('/profile/a%2Fb/post/1');
 	});
 
+	it('leaves a path param`s legal segment characters unescaped', () => {
+		expect(builder.build('Profile', { actor: "it's" })).toBe("/profile/it's");
+		expect(builder.build('Profile', { actor: 'did:plc:abc' })).toBe('/profile/did:plc:abc');
+		expect(builder.build('Profile', { actor: 'a@b' })).toBe('/profile/a@b');
+		expect(builder.build('Profile', { actor: '(a)*+,;=&$!~-_.' })).toBe('/profile/(a)*+,;=&$!~-_.');
+	});
+
+	it('escapes what a path param cannot carry literally', () => {
+		expect(builder.build('Profile', { actor: 'a?b' })).toBe('/profile/a%3Fb');
+		expect(builder.build('Profile', { actor: 'a#b' })).toBe('/profile/a%23b');
+		expect(builder.build('Profile', { actor: 'a%b' })).toBe('/profile/a%25b');
+		expect(builder.build('Profile', { actor: 'a[b]' })).toBe('/profile/a%5Bb%5D');
+		expect(builder.build('Profile', { actor: 'ねこ' })).toBe('/profile/%E3%81%AD%E3%81%93');
+		expect(builder.build('Profile', { actor: '🐈' })).toBe('/profile/%F0%9F%90%88');
+	});
+
 	it('appends present query params', () => {
 		expect(builder.build('Search', { q: 'cats' })).toBe('/search?q=cats');
 		expect(builder.build('Search', { q: 'cats', type: 'user' })).toBe('/search?q=cats&type=user');
@@ -104,7 +120,9 @@ describe('Builder', () => {
 				['Feed', { sort: 'new' }],
 				['Post', { actor: 'bob', n: 7 }],
 				['Profile', { actor: 'a/b' }],
+				['Profile', { actor: "did:plc:abc (it's me)" }],
 				['Profile', { actor: 'alice' }],
+				['Profile', { actor: 'ねこ?#%' }],
 				['Search', { q: 'cats', type: 'feed' }],
 			];
 
@@ -136,6 +154,7 @@ describe('Builder', () => {
 
 		it('appends the remainder, encoding each segment but keeping separators', () => {
 			expect(splatBuilder.build('Docs', { rest: 'a b/c' })).toBe('/docs/a%20b/c');
+			expect(splatBuilder.build('Docs', { rest: "a's/b?c" })).toBe("/docs/a's/b%3Fc");
 		});
 
 		it('drops the trailing slash when the remainder is empty', () => {

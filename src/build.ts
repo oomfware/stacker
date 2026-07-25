@@ -1,7 +1,7 @@
 import { getDefault, isOptional } from './codec.ts';
 import { splitSplat } from './routes.ts';
 import type { BuildParamsOf, RouteName, RouteRegistry } from './routes.ts';
-import { createPath, encodeRemainder } from './url.ts';
+import { createPath, encodeRemainder, encodeSegment } from './url.ts';
 
 const SEGMENT = /:([A-Za-z_]\w*)/g;
 
@@ -55,7 +55,7 @@ export class Builder<R extends RouteRegistry<unknown> = RouteRegistry<unknown>> 
 			// an ordinary param is always one segment; its own separators percent-encode away.
 			const encoded = encodeParam(paramName);
 			rejectDotSegments([encoded], paramName);
-			return encodeURIComponent(encoded);
+			return encodeSegment(encoded);
 		});
 
 		if (splat !== undefined) {
