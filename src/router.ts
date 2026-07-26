@@ -6,6 +6,7 @@ import type { LooseTarget } from './build.ts';
 import type { CacheEntryRef } from './cache.ts';
 import { computeCachedKeys } from './cache.ts';
 import type { History, HistoryLocation, HistoryNavigateOptions } from './history/types.ts';
+import { preloadAll } from './lazy.ts';
 import { Matcher } from './match.ts';
 import type { RouteMatch } from './match.ts';
 import type {
@@ -241,6 +242,22 @@ export class Router<R extends RouteRegistry<unknown>> {
 	}
 
 	/**
+	 * loads the code a route needs, without navigating to it.
+	 *
+	 * @param name route name
+	 * @returns promise that settles once loading finishes
+	 * @throws when `name` is not in the registry
+	 */
+	preload(name: RouteName<R>): Promise<void> {
+		const leaf = this.#routes.leaves.get(name);
+		if (leaf === undefined) {
+			throw new Error(`stacker: unknown route '${name}'`);
+		}
+
+		return preloadAll(leaf.chain);
+	}
+
+	/**
 	 * returns to the nearest existing history entry for a route, or pushes if none exists.
 	 *
 	 * @param to route target, or a relative URL resolved against the active location
@@ -406,6 +423,8 @@ export class Router<R extends RouteRegistry<unknown>> {
 
 	#record(location: HistoryLocation, scrollPos: ScrollPosition): void {
 		const match = this.#match(location);
+		void preloadAll(match.leaf.chain);
+
 		const entry: Entry = {
 			index: location.index,
 			key: location.key,

@@ -37,6 +37,8 @@ export type {
 	HistoryUpdate,
 } from './history/types.ts';
 export type { InstanceNode, View } from './view-model.ts';
+export type { LazyComponent } from './lazy.ts';
+export { lazy } from './lazy.ts';
 export type { NavigateOptions, RouterOptions } from './router.ts';
 export { Router } from './router.ts';
 export { RouterView } from './react/router-view.tsx';

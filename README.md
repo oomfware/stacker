@@ -206,6 +206,16 @@ const label = (target: RouteTarget<typeof routes>): string => {
 because a target spells its params alongside `name`, a route cannot declare a param called `name`;
 `defineRoutes` rejects it.
 
+wrap route components in stacker's `lazy` to allow the router to preload them ahead of time.
+
+```tsx
+const Profile = lazy(() => import('./screens/profile.tsx'));
+
+<Link onPointerEnter={() => void router.preload('Profile')} to="/profile/alice">
+	alice
+</Link>;
+```
+
 ### hooks
 
 generate type-safe hooks bound to your route configuration using `createRouterHooks`:

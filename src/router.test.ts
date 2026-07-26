@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import type { Codec } from './codec.ts';
@@ -484,6 +485,127 @@ describe('Router', () => {
 
 			expect(await settles(history.pending[0]!)).toBe('settled');
 		});
+	});
+});
+
+describe('Router preload', () => {
+	/** a route component standing in for a lazy one, counting the loads asked of it. */
+	const tracked = (): ComponentType & { calls: () => number; preload: () => Promise<void> } => {
+		let calls = 0;
+		return Object.assign((): null => null, {
+			calls: () => calls,
+			preload: (): Promise<void> => {
+				calls += 1;
+				return Promise.resolve();
+			},
+		});
+	};
+
+	const shell = tracked();
+	const page = tracked();
+	const other = tracked();
+
+	const preloadRoutes = defineRoutes({
+		app: layout({
+			children: {
+				Other: route({ component: other, path: '/other' }),
+				Page: route({ component: page, params: { id: string() }, path: '/page/:id' }),
+				Plain: route({ component: Dummy, path: '/plain' }),
+			},
+			component: shell,
+		}),
+	});
+
+	const open = () =>
+		disposed(
+			new Router({
+				history: new MemoryHistory({ initialEntries: ['/other'] }),
+				routes: preloadRoutes,
+			}),
+		);
+
+	it("loads every component along the route's chain, and nothing off it", async () => {
+		const router = open();
+		const before = { other: other.calls(), page: page.calls(), shell: shell.calls() };
+
+		await router.preload('Page');
+
+		expect(page.calls()).toBe(before.page + 1);
+		expect(shell.calls()).toBe(before.shell + 1);
+		expect(other.calls()).toBe(before.other);
+	});
+
+	it('leaves the router where it was', async () => {
+		const router = open();
+		let notified = 0;
+		router.subscribe(() => {
+			notified += 1;
+		});
+		const view = router.view;
+
+		await router.preload('Page');
+
+		expect(notified).toBe(0);
+		expect(router.view).toBe(view);
+		expect(router.location.pathname).toBe('/other');
+	});
+
+	it('throws on a route the registry does not have', () => {
+		const router = open();
+
+		expect(() => router.preload('Nowhere' as 'Page')).toThrow(/unknown route/);
+	});
+
+	it('skips over a component on the chain that cannot be preloaded', async () => {
+		const router = open();
+
+		await expect(router.preload('Plain')).resolves.toBeUndefined();
+	});
+
+	it('loads the chain of the route it opens on', () => {
+		const before = { other: other.calls(), shell: shell.calls() };
+
+		open();
+
+		expect(other.calls()).toBe(before.other + 1);
+		expect(shell.calls()).toBe(before.shell + 1);
+	});
+
+	it('loads the whole chain it navigates to, rather than one level at a time', () => {
+		const router = open();
+		const before = { page: page.calls(), shell: shell.calls() };
+
+		router.navigate({ to: { name: 'Page', id: '1' } });
+
+		// both asked for synchronously: waiting on the layout's chunk before the leaf's is the waterfall this
+		// exists to avoid.
+		expect(page.calls()).toBe(before.page + 1);
+		expect(shell.calls()).toBe(before.shell + 1);
+	});
+
+	it('loads the chain it traverses back to', () => {
+		const router = open();
+		router.navigate({ to: { name: 'Page', id: '1' } });
+		const before = other.calls();
+
+		router.back();
+
+		expect(other.calls()).toBe(before + 1);
+	});
+
+	it('survives a component whose preload throws', () => {
+		const boom = Object.assign((): null => null, {
+			preload: (): Promise<void> => {
+				throw new Error('boom');
+			},
+		});
+		const brokenRoutes = defineRoutes({ Boom: route({ component: boom, path: '/boom' }) });
+
+		expect(() =>
+			disposed(
+				new Router({ history: new MemoryHistory({ initialEntries: ['/boom'] }), routes: brokenRoutes }),
+			),
+		).not.toThrow();
 	});
 });
 
