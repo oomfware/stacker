@@ -11,8 +11,8 @@ export const RouterContext = createContext<Router<RouteRegistry<any>> | null>(nu
 export const ActiveChainContext = createContext<readonly string[]>([]);
 
 export interface CurrentNode {
-	readonly node: InstanceNode;
 	readonly focused: boolean;
+	readonly node: InstanceNode;
 }
 
 export const CurrentNodeContext = createContext<CurrentNode | null>(null);

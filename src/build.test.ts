@@ -46,43 +46,43 @@ describe('Builder', () => {
 	});
 
 	it('rejects a dot segment in a path param, which URL normalization would resolve away', () => {
-		expect(() => builder.build({ actor: '..', name: 'Profile' })).toThrow(/cannot contain a '\.\.' segment/);
-		expect(() => builder.build({ actor: '.', name: 'Profile' })).toThrow();
-		expect(() => builder.build({ actor: '..', n: 1, name: 'Post' })).toThrow();
+		expect(() => builder.build({ name: 'Profile', actor: '..' })).toThrow(/cannot contain a '\.\.' segment/);
+		expect(() => builder.build({ name: 'Profile', actor: '.' })).toThrow();
+		expect(() => builder.build({ name: 'Post', actor: '..', n: 1 })).toThrow();
 	});
 
 	it('allows dots in a path param that do not form a whole segment', () => {
-		expect(builder.build({ actor: '..x', name: 'Profile' })).toBe('/profile/..x');
-		expect(builder.build({ actor: 'a.b', name: 'Profile' })).toBe('/profile/a.b');
+		expect(builder.build({ name: 'Profile', actor: '..x' })).toBe('/profile/..x');
+		expect(builder.build({ name: 'Profile', actor: 'a.b' })).toBe('/profile/a.b');
 		// the separator percent-encodes away, so this stays a single harmless segment.
-		expect(builder.build({ actor: 'a/..', name: 'Profile' })).toBe('/profile/a%2F..');
+		expect(builder.build({ name: 'Profile', actor: 'a/..' })).toBe('/profile/a%2F..');
 	});
 
 	it('substitutes and encodes path params', () => {
-		expect(builder.build({ actor: 'alice', name: 'Profile' })).toBe('/profile/alice');
-		expect(builder.build({ actor: 'al ice', name: 'Profile' })).toBe('/profile/al%20ice');
-		expect(builder.build({ actor: 'alice', n: 42, name: 'Post' })).toBe('/profile/alice/post/42');
+		expect(builder.build({ name: 'Profile', actor: 'alice' })).toBe('/profile/alice');
+		expect(builder.build({ name: 'Profile', actor: 'al ice' })).toBe('/profile/al%20ice');
+		expect(builder.build({ name: 'Post', actor: 'alice', n: 42 })).toBe('/profile/alice/post/42');
 	});
 
 	it('encodes a separator in a path param so it cannot escape its segment', () => {
-		expect(builder.build({ actor: 'a/b', name: 'Profile' })).toBe('/profile/a%2Fb');
-		expect(builder.build({ actor: 'a/b', n: 1, name: 'Post' })).toBe('/profile/a%2Fb/post/1');
+		expect(builder.build({ name: 'Profile', actor: 'a/b' })).toBe('/profile/a%2Fb');
+		expect(builder.build({ name: 'Post', actor: 'a/b', n: 1 })).toBe('/profile/a%2Fb/post/1');
 	});
 
 	it('leaves a path param`s legal segment characters unescaped', () => {
-		expect(builder.build({ actor: "it's", name: 'Profile' })).toBe("/profile/it's");
-		expect(builder.build({ actor: 'did:plc:abc', name: 'Profile' })).toBe('/profile/did:plc:abc');
-		expect(builder.build({ actor: 'a@b', name: 'Profile' })).toBe('/profile/a@b');
-		expect(builder.build({ actor: '(a)*+,;=&$!~-_.', name: 'Profile' })).toBe('/profile/(a)*+,;=&$!~-_.');
+		expect(builder.build({ name: 'Profile', actor: "it's" })).toBe("/profile/it's");
+		expect(builder.build({ name: 'Profile', actor: 'did:plc:abc' })).toBe('/profile/did:plc:abc');
+		expect(builder.build({ name: 'Profile', actor: 'a@b' })).toBe('/profile/a@b');
+		expect(builder.build({ name: 'Profile', actor: '(a)*+,;=&$!~-_.' })).toBe('/profile/(a)*+,;=&$!~-_.');
 	});
 
 	it('escapes what a path param cannot carry literally', () => {
-		expect(builder.build({ actor: 'a?b', name: 'Profile' })).toBe('/profile/a%3Fb');
-		expect(builder.build({ actor: 'a#b', name: 'Profile' })).toBe('/profile/a%23b');
-		expect(builder.build({ actor: 'a%b', name: 'Profile' })).toBe('/profile/a%25b');
-		expect(builder.build({ actor: 'a[b]', name: 'Profile' })).toBe('/profile/a%5Bb%5D');
-		expect(builder.build({ actor: 'ねこ', name: 'Profile' })).toBe('/profile/%E3%81%AD%E3%81%93');
-		expect(builder.build({ actor: '🐈', name: 'Profile' })).toBe('/profile/%F0%9F%90%88');
+		expect(builder.build({ name: 'Profile', actor: 'a?b' })).toBe('/profile/a%3Fb');
+		expect(builder.build({ name: 'Profile', actor: 'a#b' })).toBe('/profile/a%23b');
+		expect(builder.build({ name: 'Profile', actor: 'a%b' })).toBe('/profile/a%25b');
+		expect(builder.build({ name: 'Profile', actor: 'a[b]' })).toBe('/profile/a%5Bb%5D');
+		expect(builder.build({ name: 'Profile', actor: 'ねこ' })).toBe('/profile/%E3%81%AD%E3%81%93');
+		expect(builder.build({ name: 'Profile', actor: '🐈' })).toBe('/profile/%F0%9F%90%88');
 	});
 
 	it('appends present query params', () => {
@@ -193,7 +193,7 @@ describe('Builder', () => {
 		});
 
 		it('round trips alongside preceding dynamic params', () => {
-			const built = splatBuilder.build({ actor: 'alice', name: 'Scoped', rest: 'src/index.ts' });
+			const built = splatBuilder.build({ name: 'Scoped', actor: 'alice', rest: 'src/index.ts' });
 			expect(built).toBe('/u/alice/tree/src/index.ts');
 			expect(splatMatcher.match(built)?.params).toEqual({ actor: 'alice', rest: 'src/index.ts' });
 		});

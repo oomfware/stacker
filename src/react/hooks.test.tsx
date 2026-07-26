@@ -23,7 +23,7 @@ const TargetProbe = () => {
 	return (
 		<>
 			<p data-testid="target">{JSON.stringify(target)}</p>
-			<a data-testid="href" href={router.href({ actor: 'bob', name: 'Profile' })}>
+			<a data-testid="href" href={router.href({ name: 'Profile', actor: 'bob' })}>
 				bob
 			</a>
 		</>
@@ -33,7 +33,7 @@ const TargetProbe = () => {
 const Home = () => {
 	const router = hooks.useRouter();
 	return (
-		<button onClick={() => router.navigate({ to: { actor: 'alice', name: 'Profile' } })} type="button">
+		<button onClick={() => router.navigate({ to: { name: 'Profile', actor: 'alice' } })} type="button">
 			go alice
 		</button>
 	);
@@ -92,7 +92,7 @@ describe('typed hooks', () => {
 	it('useParams reports the patched query without a new history entry', () => {
 		const router = make();
 		render(<RouterView router={router} />);
-		act(() => router.navigate({ to: { actor: 'alice', name: 'Profile' } }));
+		act(() => router.navigate({ to: { name: 'Profile', actor: 'alice' } }));
 		const before = router.location;
 
 		act(() => router.replace('Profile', { tab: 'media' }));
@@ -106,7 +106,7 @@ describe('typed hooks', () => {
 	it('the useParams setter patches the active route query in place', () => {
 		const router = make();
 		render(<RouterView router={router} />);
-		act(() => router.navigate({ to: { actor: 'alice', name: 'Profile' } }));
+		act(() => router.navigate({ to: { name: 'Profile', actor: 'alice' } }));
 		const before = router.location;
 
 		act(() => screen.getByText('set media').click());
@@ -122,7 +122,7 @@ describe('typed hooks', () => {
 		render(<RouterView router={router} />);
 		expect(screen.getByTestId('active')).toHaveTextContent('Home {}');
 
-		act(() => router.navigate({ to: { actor: 'alice', name: 'Profile' } }));
+		act(() => router.navigate({ to: { name: 'Profile', actor: 'alice' } }));
 		expect(screen.getByTestId('active')).toHaveTextContent('Profile {"actor":"alice"}');
 
 		act(() => router.replace('Profile', { tab: 'media' }));
@@ -134,7 +134,7 @@ describe('typed hooks', () => {
 		render(<RouterView router={router} />);
 		expect(screen.getByTestId('target')).toHaveTextContent('{"name":"Home"}');
 
-		act(() => router.navigate({ to: { actor: 'alice', name: 'Profile' } }));
+		act(() => router.navigate({ to: { name: 'Profile', actor: 'alice' } }));
 
 		expect(screen.getByTestId('target')).toHaveTextContent('{"actor":"alice","name":"Profile"}');
 	});

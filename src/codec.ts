@@ -168,9 +168,9 @@ export const nonEmpty = (): Codec<string> => ({
  * @returns the optional codec
  */
 export const optional = <T>(codec: Codec<T>): OptionalCodec<T> => ({
+	[OPTIONAL]: true,
 	decode: (raw) => codec.decode(raw),
 	encode: (value) => codec.encode(value),
-	[OPTIONAL]: true,
 });
 
 /**
@@ -181,9 +181,9 @@ export const optional = <T>(codec: Codec<T>): OptionalCodec<T> => ({
  * @returns the defaulted codec
  */
 export const withDefault = <T>(codec: Codec<T>, fallback: T): DefaultedCodec<T> => ({
+	[DEFAULT]: fallback,
 	decode: (raw) => codec.decode(raw),
 	encode: (value) => codec.encode(value),
-	[DEFAULT]: fallback,
 });
 
 // #endregion

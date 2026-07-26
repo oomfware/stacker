@@ -195,7 +195,7 @@ describe('Router', () => {
 		it('resolves a relative URL against the active location, as a push would', () => {
 			const router = make(['/profile/alice']);
 
-			expect(router.match('bob')).toEqual({ actor: 'bob', name: 'Profile' });
+			expect(router.match('bob')).toEqual({ name: 'Profile', actor: 'bob' });
 			expect(router.match('?tab=likes')?.name).toBe('Profile');
 		});
 
@@ -311,7 +311,7 @@ describe('Router', () => {
 		it('pushes by default, and replaces on request', () => {
 			const router = make(['/']);
 
-			router.navigate({ to: { actor: 'alice', name: 'Profile' } });
+			router.navigate({ to: { name: 'Profile', actor: 'alice' } });
 
 			expect(router.location.pathname).toBe('/profile/alice');
 			expect(router.location.index).toBe(1);
@@ -359,7 +359,7 @@ describe('Router', () => {
 			router.navigate({ to: '/profile/bob' });
 			router.navigate({ to: '/search?q=x' });
 
-			router.popTo({ actor: 'bob', name: 'Profile' });
+			router.popTo({ name: 'Profile', actor: 'bob' });
 
 			expect(router.location.pathname).toBe('/profile/bob');
 			expect(router.location.index).toBe(2);
@@ -391,7 +391,7 @@ describe('Router', () => {
 			const router = make(['/profile/alice']);
 			router.navigate({ to: '/page' });
 
-			router.popTo({ actor: 'bob', name: 'Profile' });
+			router.popTo({ name: 'Profile', actor: 'bob' });
 
 			expect(router.location.pathname).toBe('/profile/bob');
 			expect(router.location.index).toBe(2);

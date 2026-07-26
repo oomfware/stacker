@@ -129,11 +129,11 @@ export const layout = <const Children extends RouteChildren, const Params extend
 
 /** a node resolved with an id and normalized parameters. */
 export interface ResolvedNode {
+	readonly kind: 'layout' | 'route';
 	/** unique dot-separated node path. */
 	readonly id: string;
 	/** key name within the parent record. */
 	readonly key: string;
-	readonly kind: 'layout' | 'route';
 	readonly node: RouteNode;
 	/** local parameter codecs. */
 	readonly params: CodecRecord;
@@ -241,9 +241,9 @@ export const defineRoutes = <const T>(tree: T & ValidRoutes<T>): RouteRegistry<T
 			}
 			const params: CodecRecord = node.params ?? {};
 			const resolved: ResolvedNode = {
+				kind: node.kind,
 				id,
 				key,
-				kind: node.kind,
 				node,
 				params,
 				path: node.kind === 'route' ? node.path : undefined,

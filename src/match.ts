@@ -5,9 +5,9 @@ import { decodeRemainder } from './url.ts';
 
 /** a node on a matched chain paired with its instance parameters. */
 export interface MatchedNode {
+	readonly node: ResolvedNode;
 	/** parameters used for instance keying. */
 	readonly params: Readonly<Record<string, unknown>>;
-	readonly node: ResolvedNode;
 }
 
 /** the result of matching a URL, containing the chain, leaf, name, and parameters. */

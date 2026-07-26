@@ -481,11 +481,11 @@ export class Router<R extends RouteRegistry<unknown>> {
 const toTarget = (match: RouteMatch): LooseTarget => ({ ...match.params, name: match.name });
 
 const makeNotFound = (component: ComponentType): { leaf: ResolvedLeaf; node: ResolvedNode } => {
-	const leafNode: RouteLeaf = { component, kind: 'route', params: {}, path: '*', query: {}, type: 'page' };
+	const leafNode: RouteLeaf = { kind: 'route', component, params: {}, path: '*', query: {}, type: 'page' };
 	const node: ResolvedNode = {
+		kind: 'route',
 		id: ' notFound',
 		key: ' notFound',
-		kind: 'route',
 		node: leafNode,
 		params: {},
 		path: '*',

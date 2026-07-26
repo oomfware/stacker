@@ -154,11 +154,11 @@ const AppShell = () => {
 		<div style={{ fontFamily: 'system-ui', padding: 16 }}>
 			<header
 				style={{
+					background: '#fff',
 					borderBottom: '1px solid #ccc',
 					paddingBottom: 8,
 					position: 'sticky',
 					top: 0,
-					background: '#fff',
 				}}
 			>
 				<strong>
@@ -179,7 +179,7 @@ const AppShell = () => {
 					<Link to="/settings">settings</Link>
 					<button
 						data-testid="nav-carol"
-						onClick={() => router.navigate({ to: { actor: 'carol', name: 'Profile' } })}
+						onClick={() => router.navigate({ to: { name: 'Profile', actor: 'carol' } })}
 						type="button"
 					>
 						carol (typed)
