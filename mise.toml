@@ -1,0 +1,6 @@
+[tools]
+node = "24"
+pnpm = "11"
+
+[env]
+AGENT_BROWSER_NAMESPACE = "stacker"
