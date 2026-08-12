@@ -24,6 +24,12 @@ export interface NavigationHistoryOptions {
 	 * @returns true to leave the navigation to the browser
 	 */
 	readonly ignore?: (url: URL) => boolean;
+	/**
+	 * handles navigation and render failures. defaults to `Window.reportError`.
+	 *
+	 * @param error failure reason
+	 */
+	readonly onError?: (error: unknown) => void;
 	/** window instance to bind to; defaults to global window. */
 	readonly window?: Window;
 }
@@ -50,10 +56,9 @@ const toAction = (type: NavigationType): HistoryAction | undefined => {
 	}
 };
 
-const ignore = (result: NavigationResult): void => {
-	result.committed?.catch(() => {});
-	result.finished?.catch(() => {});
-};
+// errors can come from a different realm, so compare their names.
+const isAbort = (error: unknown): boolean =>
+	typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError';
 
 /**
  * history implementation backed by the web navigation API.
@@ -62,18 +67,26 @@ const ignore = (result: NavigationResult): void => {
  * metadata and indices are managed natively by the browser.
  */
 export class NavigationHistory implements History {
-	readonly #win: Window;
-	readonly #nav: Navigation;
 	readonly #ignore: ((url: URL) => boolean) | undefined;
 	readonly #listeners = new Set<HistoryListener>();
+	readonly #nav: Navigation;
+	readonly #onError: (error: unknown) => void;
+	readonly #win: Window;
+	#disposed = false;
 	#location: HistoryLocation;
 
 	constructor(options: NavigationHistoryOptions = {}) {
 		this.#win = options.window ?? window;
 		this.#nav = this.#win.navigation;
 		this.#ignore = options.ignore;
+		this.#onError =
+			options.onError ??
+			((error: unknown) => {
+				this.#win.reportError(error);
+			});
 		this.#location = this.#read();
 		this.#nav.addEventListener('navigate', this.#onNavigate);
+		this.#nav.addEventListener('navigateerror', this.#onNavigateError);
 
 		this.#win.history.scrollRestoration = 'manual';
 	}
@@ -109,8 +122,8 @@ export class NavigationHistory implements History {
 		this.#navigate(to, 'replace', options);
 	}
 
-	traverseTo(key: string): void {
-		ignore(this.#nav.traverseTo(key));
+	traverseTo(key: string): Promise<void> {
+		return this.#track(this.#nav.traverseTo(key));
 	}
 
 	go(delta: number): void {
@@ -119,18 +132,18 @@ export class NavigationHistory implements History {
 		if (target === undefined || target.key === this.#location.key) {
 			return;
 		}
-		this.traverseTo(target.key);
+		this.#report(this.traverseTo(target.key));
 	}
 
 	back(): void {
 		if (this.#nav.canGoBack) {
-			ignore(this.#nav.back());
+			this.#report(this.#track(this.#nav.back()));
 		}
 	}
 
 	forward(): void {
 		if (this.#nav.canGoForward) {
-			ignore(this.#nav.forward());
+			this.#report(this.#track(this.#nav.forward()));
 		}
 	}
 
@@ -142,8 +155,29 @@ export class NavigationHistory implements History {
 	}
 
 	dispose(): void {
+		this.#disposed = true;
 		this.#nav.removeEventListener('navigate', this.#onNavigate);
+		this.#nav.removeEventListener('navigateerror', this.#onNavigateError);
 		this.#listeners.clear();
+	}
+
+	// render failures also reach `navigateerror`.
+	#track(result: NavigationResult): Promise<void> {
+		result.finished?.catch(() => {});
+		return result.committed?.then(() => undefined) ?? Promise.resolve();
+	}
+
+	#fail(error: unknown): void {
+		if (this.#disposed || isAbort(error)) {
+			return;
+		}
+		this.#onError(error);
+	}
+
+	#report(committed: Promise<void>): void {
+		committed.catch((error: unknown) => {
+			this.#fail(error);
+		});
 	}
 
 	#navigate(to: string, history: NavigationHistoryBehavior, options: HistoryNavigateOptions): void {
@@ -155,7 +189,9 @@ export class NavigationHistory implements History {
 			info: options.info,
 			scroll: options.scroll ?? 'auto',
 		};
-		ignore(this.#nav.navigate(url, { history, info: envelope, state: options.state ?? null }));
+		this.#report(
+			this.#track(this.#nav.navigate(url, { history, info: envelope, state: options.state ?? null })),
+		);
 	}
 
 	#read(): HistoryLocation {
@@ -203,6 +239,11 @@ export class NavigationHistory implements History {
 				await Promise.all([...this.#listeners].map(async (listener) => listener(update)));
 			},
 		});
+	};
+
+	readonly #onNavigateError = (event: ErrorEvent): void => {
+		const error: unknown = event.error;
+		this.#fail(error);
 	};
 }
 

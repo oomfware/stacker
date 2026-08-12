@@ -130,6 +130,7 @@ export interface History {
 	 * navigates to an existing entry by key.
 	 *
 	 * @param key target entry key
+	 * @returns promise that resolves on commit and rejects if traversal fails
 	 */
-	traverseTo(key: string): void;
+	traverseTo(key: string): Promise<void>;
 }

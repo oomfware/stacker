@@ -123,14 +123,14 @@ describe('MemoryHistory', () => {
 			expect(history.location.key).toBe(atB.key);
 		});
 
-		it('traverseTo moves to an entry by key, leaving the forward entries standing', () => {
+		it('traverseTo moves to an entry by key, leaving the forward entries standing', async () => {
 			const history = new MemoryHistory();
 			history.push('/a');
 			const keyOfA = history.location.key;
 			history.push('/b');
 			history.push('/c');
 
-			history.traverseTo(keyOfA);
+			await history.traverseTo(keyOfA);
 
 			expect(history.location.pathname).toBe('/a');
 			expect(history.entries().map((entry) => entry.url)).toEqual(['/', '/a', '/b', '/c']);
@@ -138,8 +138,8 @@ describe('MemoryHistory', () => {
 			expect(history.canGoForward).toBe(true);
 		});
 
-		it('traverseTo throws for a key that is not in the ledger', () => {
-			expect(() => new MemoryHistory().traverseTo('nope')).toThrow(/no history entry with key/);
+		it('traverseTo rejects for a key that is not in the ledger', async () => {
+			await expect(new MemoryHistory().traverseTo('nope')).rejects.toThrow(/no history entry with key/);
 		});
 
 		it('clamps an out-of-range traversal to a no-op', () => {

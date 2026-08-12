@@ -260,6 +260,8 @@ export class Router<R extends RouteRegistry<unknown>> {
 	/**
 	 * returns to the nearest existing history entry for a route, or pushes if none exists.
 	 *
+	 * pushes the destination if traversal to a matching entry fails.
+	 *
 	 * @param to route target, or a relative URL resolved against the active location
 	 */
 	popTo(to: RouteTarget<R> | string): void {
@@ -269,7 +271,9 @@ export class Router<R extends RouteRegistry<unknown>> {
 		if (wantedMatch !== undefined) {
 			const wanted = this.#canonical(wantedMatch);
 			const entries = this.#history.entries();
-			for (let i = this.#history.location.index; i >= 0; i--) {
+			const from = this.#history.location.key;
+			const start = entries.findIndex((entry) => entry.key === from);
+			for (let i = start; i >= 0; i--) {
 				const entry = entries[i];
 				if (entry === undefined || !entry.sameDocument || entry.url === null) {
 					break;
@@ -277,7 +281,12 @@ export class Router<R extends RouteRegistry<unknown>> {
 				const parts = parsePath(entry.url);
 				const match = this.#matcher.match(parts.pathname, parts.search, parts.hash);
 				if (match !== undefined && match.name === wantedMatch.name && this.#canonical(match) === wanted) {
-					this.#history.traverseTo(entry.key);
+					this.#history.traverseTo(entry.key).catch(() => {
+						// do not replace a later navigation with the fallback.
+						if (this.#history.location.key === from) {
+							this.#history.push(url);
+						}
+					});
 					return;
 				}
 			}
@@ -446,7 +455,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 			index: entry.index,
 			key: entry.key,
 		}));
-		const cachedKeys = computeCachedKeys(refs, active.index, this.#recency, { max: this.#max });
+		const cachedKeys = computeCachedKeys(refs, active.key, this.#recency, { max: this.#max });
 
 		const cached: PoolEntry[] = [];
 		for (const entry of this.#entries.values()) {

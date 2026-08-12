@@ -88,12 +88,14 @@ export class MemoryHistory implements History {
 		this.#emit({ action: 'replace', info: options.info, location, scroll: options.scroll ?? 'auto' });
 	}
 
-	traverseTo(key: string): void {
+	traverseTo(key: string): Promise<void> {
 		const index = this.#entries.findIndex((entry) => entry.key === key);
 		if (index === -1) {
-			throw new Error(`stacker: no history entry with key '${key}'`);
+			return Promise.reject(new Error(`stacker: no history entry with key '${key}'`));
 		}
+
 		this.go(index - this.#index);
+		return Promise.resolve();
 	}
 
 	go(delta: number): void {

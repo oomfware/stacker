@@ -7,28 +7,24 @@ export interface CachePolicy {
 	readonly max: number;
 }
 
-/**
- * computes which history entries to keep warm based on active index and recency.
- *
- * retains the active entry plus backward entries using an LRU policy. forward entries are dropped.
- */
+/** selects the active entry and recent backward entries for caching. */
 export const computeCachedKeys = (
 	entries: readonly CacheEntryRef[],
-	activeIndex: number,
+	activeKey: string,
 	recency: readonly string[],
 	policy: CachePolicy,
 ): Set<string> => {
 	const cached = new Set<string>();
 
-	const active = entries.find((entry) => entry.index === activeIndex);
+	const active = entries.find((entry) => entry.key === activeKey);
 	if (active === undefined) {
-		throw new Error(`stacker: no history entry at active index ${activeIndex}`);
+		throw new Error(`stacker: no history entry with the active key '${activeKey}'`);
 	}
 	cached.add(active.key);
 
 	const backward = new Map<string, CacheEntryRef>();
 	for (const entry of entries) {
-		if (entry.index < activeIndex) {
+		if (entry.index < active.index) {
 			backward.set(entry.key, entry);
 		}
 	}

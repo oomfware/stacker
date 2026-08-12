@@ -325,6 +325,16 @@ new NavigationHistory({
 });
 ```
 
+### failed navigations
+
+`NavigationHistory` sends navigation and render errors to `onError`. it defaults to `reportError`:
+
+```ts
+new NavigationHistory({
+	onError: (error) => captureException(error),
+});
+```
+
 ### metadata
 
 declare custom route metadata using module augmentation:

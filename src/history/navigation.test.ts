@@ -216,6 +216,50 @@ describe('NavigationHistory', () => {
 		});
 	});
 
+	describe('failures', () => {
+		const caught = async (): Promise<{ errors: unknown[]; history: NavigationHistory }> => {
+			const errors: unknown[] = [];
+			const { history } = await open({
+				onError: (error) => {
+					errors.push(error);
+				},
+			});
+			return { errors, history };
+		};
+
+		it('reports an in-app render that threw, instead of leaving a silent no-op', async () => {
+			const { errors, history } = await caught();
+			history.listen(() => {
+				throw new Error('the render blew up');
+			});
+
+			history.push(`${PROBE}?n=a`);
+			await until(() => errors.length > 0, 'the failed render to be reported');
+
+			expect((errors[0] as Error).message).toBe('the render blew up');
+		});
+
+		it('hands a traversal the browser refuses to its caller, who has a fallback', async () => {
+			const { errors, history } = await caught();
+
+			await expect(history.traverseTo('not-a-key')).rejects.toThrow();
+			await sleep(50);
+
+			expect(errors).toEqual([]);
+		});
+
+		it('stays quiet when one navigation cuts another short', async () => {
+			const { errors, history } = await caught();
+
+			history.push(`${PROBE}?n=a`);
+			history.push(`${PROBE}?n=b`);
+			await until(() => history.location.search === '?n=b', 'the second push to land');
+			await sleep(50);
+
+			expect(errors).toEqual([]);
+		});
+	});
+
 	describe('ignore', () => {
 		it('hands an ignored push to the browser as a real page load, and reports nothing', async () => {
 			const { history, win } = await open({ ignore: (url) => url.searchParams.has('server') });

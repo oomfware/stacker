@@ -8,7 +8,7 @@ import { NavigationHistory } from './history/navigation.ts';
 import type { HistoryListener } from './history/types.ts';
 import { Router } from './router.ts';
 import { defineRoutes, layout, route } from './routes.ts';
-import { disposed, Dummy, openProbe, PROBE, reloadProbe, settled, until } from './test-support.ts';
+import { disposed, Dummy, openProbe, PROBE, reloadProbe, settled, sleep, until } from './test-support.ts';
 
 const csv = (): Codec<string[]> => ({
 	decode: (raw) => raw.split(','),
@@ -342,6 +342,15 @@ describe('Router', () => {
 	});
 
 	describe('popTo', () => {
+		class StrandedHistory extends MemoryHistory {
+			override traverseTo(): Promise<void> {
+				return Promise.reject(new Error('stacker: the entry is not reachable'));
+			}
+		}
+
+		const stranded = (initialEntries: string[]) =>
+			new Router({ history: new StrandedHistory({ initialEntries }), routes });
+
 		it('traverses back to the nearest matching entry instead of pushing a duplicate', () => {
 			const router = make(['/']);
 			router.navigate({ to: '/page' });
@@ -426,6 +435,27 @@ describe('Router', () => {
 
 			expect(router.location.pathname).toBe('/tags');
 			expect(router.location.index).toBe(2);
+		});
+
+		it('pushes when the entry it matched turns out to be unreachable', async () => {
+			const router = stranded(['/', '/page', '/profile/alice']);
+
+			router.popTo({ name: 'Page' });
+			await until(() => router.location.pathname === '/page', 'the refused traversal to fall back to a push');
+
+			expect(router.location.index).toBe(3);
+			expect(router.canGoForward).toBe(false);
+		});
+
+		it('leaves a refused traversal alone once the user has navigated on', async () => {
+			const router = stranded(['/', '/page', '/profile/alice']);
+
+			router.popTo({ name: 'Page' });
+			router.navigate({ to: '/feed' });
+			await sleep(10);
+
+			expect(router.location.pathname).toBe('/feed');
+			expect(router.location.index).toBe(3);
 		});
 	});
 
