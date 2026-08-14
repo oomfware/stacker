@@ -1,11 +1,12 @@
 /**
- * the type of navigation that produced a history update.
+ * the type of write that produced a history update.
  *
  * - `push` — a new entry was added.
  * - `replace` — the active entry was replaced.
  * - `traverse` — navigation occurred to an existing entry.
+ * - `update` — the active entry's state was rewritten in place, without navigating.
  */
-export type HistoryAction = 'push' | 'replace' | 'traverse';
+export type HistoryAction = 'push' | 'replace' | 'traverse' | 'update';
 
 /** an entry in the browser session history ledger. */
 export interface HistoryEntry {
@@ -133,4 +134,14 @@ export interface History {
 	 * @returns promise that resolves on commit and rejects if traversal fails
 	 */
 	traverseTo(key: string): Promise<void>;
+	/**
+	 * rewrites the state of the active entry in place, without navigating.
+	 *
+	 * the entry keeps its id, key and URL, so no revision is minted and the user's place on the page is left
+	 * alone. listeners are notified with the `update` action, since the caller is only ever one of them.
+	 *
+	 * @param state state data to store on the entry, replacing whatever is there
+	 * @throws when the state cannot be structured-cloned
+	 */
+	updateState(state: unknown): void;
 }

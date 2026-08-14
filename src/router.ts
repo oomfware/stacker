@@ -114,6 +114,13 @@ export class Router<R extends RouteRegistry<unknown>> {
 		this.#view = this.#recompute();
 
 		this.#unlisten = this.#history.listen(async ({ action, location: next, scroll }) => {
+			// a state write leaves the URL alone, so every warm entry and the view survive it untouched; only
+			// readers of the location have anything to see.
+			if (action === 'update') {
+				this.#updates.emit();
+				return;
+			}
+
 			const win = this.#win;
 			const restoring = scroll === 'auto' && win !== null;
 			if (restoring) {
@@ -333,6 +340,20 @@ export class Router<R extends RouteRegistry<unknown>> {
 			search: query ? `?${query}` : '',
 		});
 		this.#history.replace(to, { scroll: 'preserve', state: location.state });
+	}
+
+	/**
+	 * rewrites the active history entry's state, without navigating.
+	 *
+	 * the entry keeps its URL and slot, so the screen stays mounted and the viewport does not move. the whole
+	 * state is replaced, so build the next value from `router.location.state` to keep the parts you still want.
+	 * readers of `useLocation` re-render with it.
+	 *
+	 * @param state state data to store on the entry
+	 * @throws when the state cannot be structured-cloned, leaving the entry as it was
+	 */
+	updateState(state: unknown): void {
+		this.#history.updateState(state);
 	}
 
 	/** navigates back one entry. */

@@ -88,6 +88,12 @@ export class MemoryHistory implements History {
 		this.#emit({ action: 'replace', info: options.info, location, scroll: options.scroll ?? 'auto' });
 	}
 
+	updateState(state: unknown): void {
+		const location: HistoryLocation = { ...this.#current(), state: structuredClone(state) };
+		this.#entries = this.#entries.with(this.#index, location);
+		this.#emit({ action: 'update', info: undefined, location, scroll: 'preserve' });
+	}
+
 	traverseTo(key: string): Promise<void> {
 		const index = this.#entries.findIndex((entry) => entry.key === key);
 		if (index === -1) {
@@ -140,7 +146,9 @@ export class MemoryHistory implements History {
 		state: unknown,
 	): HistoryLocation {
 		const { hash, pathname, search } = resolvePath(to, base);
-		return { hash, id, index, key, pathname, search, state };
+		// the browser stores a structured clone, so a caller that keeps mutating the object it passed does not
+		// reach back into the ledger. cloning here also rejects the same values a real entry would.
+		return { hash, id, index, key, pathname, search, state: structuredClone(state) };
 	}
 
 	#current(): HistoryLocation {

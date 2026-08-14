@@ -85,6 +85,7 @@ export class NavigationHistory implements History {
 				this.#win.reportError(error);
 			});
 		this.#location = this.#read();
+		this.#nav.addEventListener('currententrychange', this.#onCurrentEntryChange);
 		this.#nav.addEventListener('navigate', this.#onNavigate);
 		this.#nav.addEventListener('navigateerror', this.#onNavigateError);
 
@@ -122,6 +123,10 @@ export class NavigationHistory implements History {
 		this.#navigate(to, 'replace', options);
 	}
 
+	updateState(state: unknown): void {
+		this.#nav.updateCurrentEntry({ state });
+	}
+
 	traverseTo(key: string): Promise<void> {
 		return this.#track(this.#nav.traverseTo(key));
 	}
@@ -156,6 +161,7 @@ export class NavigationHistory implements History {
 
 	dispose(): void {
 		this.#disposed = true;
+		this.#nav.removeEventListener('currententrychange', this.#onCurrentEntryChange);
 		this.#nav.removeEventListener('navigate', this.#onNavigate);
 		this.#nav.removeEventListener('navigateerror', this.#onNavigateError);
 		this.#listeners.clear();
@@ -174,8 +180,13 @@ export class NavigationHistory implements History {
 		this.#onError(error);
 	}
 
-	#report(committed: Promise<void>): void {
-		committed.catch((error: unknown) => {
+	async #notify(update: HistoryUpdate): Promise<void> {
+		await Promise.all([...this.#listeners].map(async (listener) => listener(update)));
+	}
+
+	// takes both commits and listener notifications, since a failure in either reaches the app the same way.
+	#report(work: Promise<void>): void {
+		work.catch((error: unknown) => {
 			this.#fail(error);
 		});
 	}
@@ -211,6 +222,22 @@ export class NavigationHistory implements History {
 		};
 	}
 
+	readonly #onCurrentEntryChange = (event: NavigationCurrentEntryChangeEvent): void => {
+		if (event.navigationType !== null) {
+			return;
+		}
+		this.#location = this.#read();
+
+		this.#report(
+			this.#notify({
+				action: 'update',
+				info: undefined,
+				location: this.#location,
+				scroll: 'preserve',
+			}),
+		);
+	};
+
 	readonly #onNavigate = (event: NavigateEvent): void => {
 		const action = toAction(event.navigationType);
 		if (action === undefined || !event.canIntercept) {
@@ -235,8 +262,7 @@ export class NavigationHistory implements History {
 			scroll: 'manual',
 			handler: async () => {
 				this.#location = this.#read();
-				const update: HistoryUpdate = { action, info, location: this.#location, scroll };
-				await Promise.all([...this.#listeners].map(async (listener) => listener(update)));
+				await this.#notify({ action, info, location: this.#location, scroll });
 			},
 		});
 	};

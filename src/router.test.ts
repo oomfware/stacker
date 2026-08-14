@@ -341,6 +341,81 @@ describe('Router', () => {
 		});
 	});
 
+	describe('updateState', () => {
+		it('rewrites the active entry`s state and notifies subscribers', () => {
+			const router = make(['/feed?q=cats']);
+			let notified = 0;
+			router.subscribe(() => {
+				notified += 1;
+			});
+			const before = router.location;
+
+			router.updateState({ anchor: 42 });
+
+			expect(router.location.state).toEqual({ anchor: 42 });
+			expect(router.location.key).toBe(before.key);
+			expect(router.location.index).toBe(before.index);
+			expect(notified).toBe(1);
+		});
+
+		// the router is only ever one listener on a history, so it cannot rely on having made the write itself.
+		it('notifies subscribers of a state write it did not make', () => {
+			const history = new MemoryHistory({ initialEntries: ['/feed'] });
+			const router = new Router({ history, routes });
+			let notified = 0;
+			router.subscribe(() => {
+				notified += 1;
+			});
+
+			history.updateState({ anchor: 42 });
+
+			expect(router.location.state).toEqual({ anchor: 42 });
+			expect(notified).toBe(1);
+		});
+
+		it('replaces the whole state rather than merging into it', () => {
+			const router = make(['/']);
+			router.updateState({ anchor: 42, draft: 'hello' });
+
+			router.updateState({ anchor: 7 });
+
+			expect(router.location.state).toEqual({ anchor: 7 });
+		});
+
+		it('keeps the screen warm, since no navigation happened', () => {
+			const router = make(['/feed?q=cats']);
+			const before = router.view;
+			const leaf = activeLeaf(router);
+
+			router.updateState({ anchor: 42 });
+
+			expect(router.view).toBe(before);
+			expect(activeLeaf(router)).toBe(leaf);
+		});
+
+		it('survives a navigation away and back', () => {
+			const router = make(['/feed']);
+			router.updateState({ anchor: 42 });
+
+			router.navigate({ to: '/page' });
+			expect(router.location.state).toBe(null);
+
+			router.back();
+
+			expect(router.location.state).toEqual({ anchor: 42 });
+		});
+
+		it('rides along a query patch, which reuses the entry', () => {
+			const router = make(['/feed?q=cats']);
+			router.updateState({ anchor: 42 });
+
+			router.replace('Feed', { q: 'dogs' });
+
+			expect(router.location.search).toBe('?q=dogs');
+			expect(router.location.state).toEqual({ anchor: 42 });
+		});
+	});
+
 	describe('popTo', () => {
 		class StrandedHistory extends MemoryHistory {
 			override traverseTo(): Promise<void> {
@@ -780,6 +855,21 @@ describe('Router on the navigation API', () => {
 		expect(router.location.key).toBe(before.key);
 		expect(router.location.index).toBe(before.index);
 		expect(router.canGoBack).toBe(false);
+	});
+
+	it('updateState keeps the screen warm and survives a traversal away and back', async () => {
+		const router = await open();
+		const before = leafOf(router);
+
+		router.updateState({ anchor: 42 });
+		expect(router.location.state).toEqual({ anchor: 42 });
+		expect(leafOf(router)).toBe(before);
+
+		await settled(router, () => router.navigate({ to: '/other' }));
+		await settled(router, () => router.back());
+
+		expect(router.location.state).toEqual({ anchor: 42 });
+		expect(leafOf(router)).toBe(before);
 	});
 
 	it('popTo traverses back to an existing entry instead of pushing a duplicate', async () => {

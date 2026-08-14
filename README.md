@@ -186,6 +186,14 @@ router.replace('Profile', { tab: undefined }); // -> /profile/alice
 unmentioned params keep their values, undeclared keys are ignored, and naming a route other than the
 one on screen throws.
 
+`router.updateState` rewrites the active entry's state without navigating at all, useful for the
+things a URL should not carry, like a draft or a scroll anchor:
+
+```ts
+router.updateState({ draft: 'hello' });
+router.updateState({ ...(router.location.state as State), draft: '' });
+```
+
 a route target is a discriminated union, so narrowing on `name` narrows the params with it:
 
 ```ts

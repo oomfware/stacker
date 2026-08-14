@@ -81,6 +81,51 @@ describe('MemoryHistory', () => {
 			expect(history.location.state).toEqual({ n: 1 });
 		});
 
+		it('updateState rewrites the active entry in place, keeping its id and key', () => {
+			const history = new MemoryHistory({ initialEntries: ['/a', '/b'] });
+			const updates = updatesOf(history);
+			const before = history.location;
+
+			history.updateState({ draft: 'hello' });
+
+			expect(history.location.state).toEqual({ draft: 'hello' });
+			expect(history.location.id).toBe(before.id);
+			expect(history.location.key).toBe(before.key);
+			expect(history.location.index).toBe(before.index);
+			expect(history.entries()).toHaveLength(2);
+			expect(updates.map((update) => update.action)).toEqual(['update']);
+			expect(updates[0]?.scroll).toBe('preserve');
+		});
+
+		it('updateState leaves the other entries` state standing', () => {
+			const history = new MemoryHistory();
+			history.push('/a', { state: { n: 1 } });
+			history.push('/b');
+
+			history.updateState({ n: 2 });
+			history.back();
+
+			expect(history.location.state).toEqual({ n: 1 });
+		});
+
+		it('updateState throws on state that cannot be structured-cloned, as a browser would', () => {
+			const history = new MemoryHistory();
+			history.push('/a', { state: { n: 1 } });
+
+			expect(() => history.updateState(() => 'nope')).toThrow();
+			expect(history.location.state).toEqual({ n: 1 });
+		});
+
+		it('stores state by value, so mutating the object passed in does not reach the ledger', () => {
+			const history = new MemoryHistory();
+			const state = { n: 1 };
+
+			history.push('/a', { state });
+			state.n = 2;
+
+			expect(history.location.state).toEqual({ n: 1 });
+		});
+
 		it('resolves a relative destination against the current location', () => {
 			const history = new MemoryHistory({ initialEntries: ['/profile/alice'] });
 

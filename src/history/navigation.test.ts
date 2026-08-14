@@ -97,6 +97,42 @@ describe('NavigationHistory', () => {
 			expect(history.location.state).toEqual({ n: 'a' });
 		});
 
+		it('updateState rewrites the active entry in place, adding no entry or revision', async () => {
+			const { history } = await open();
+			await written(history, () => history.push(`${PROBE}?n=a`, { state: { n: 'a' } }));
+			const before = history.location;
+			const updates = reported(history);
+
+			history.updateState({ n: 'patched' });
+
+			expect(history.location.state).toEqual({ n: 'patched' });
+			expect(history.location.id).toBe(before.id);
+			expect(history.location.key).toBe(before.key);
+			expect(history.location.index).toBe(before.index);
+			expect(history.entries()).toHaveLength(2);
+			expect(updates.map((update) => update.action)).toEqual(['update']);
+			expect(updates[0]?.scroll).toBe('preserve');
+		});
+
+		it('updateState survives a traverse away and back', async () => {
+			const { history } = await open();
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			history.updateState({ n: 'patched' });
+
+			await written(history, () => history.back());
+			await written(history, () => history.forward());
+
+			expect(history.location.state).toEqual({ n: 'patched' });
+		});
+
+		it('updateState throws on state the browser cannot serialize', async () => {
+			const { history } = await open();
+			await written(history, () => history.push(`${PROBE}?n=a`, { state: { n: 'a' } }));
+
+			expect(() => history.updateState(() => 'nope')).toThrow();
+			expect(history.location.state).toEqual({ n: 'a' });
+		});
+
 		it('truncates the forward entries on a push from a non-tip entry', async () => {
 			const { history } = await open();
 			await written(history, () => history.push(`${PROBE}?n=a`));
@@ -136,6 +172,29 @@ describe('NavigationHistory', () => {
 
 			expect(update.action).toBe('push');
 			expect(history.location.search).toBe('?n=elsewhere');
+		});
+
+		it('reports a state write the page made itself, keeping its cached location in step', async () => {
+			const { history, win } = await open();
+			const updates = reported(history);
+
+			win.navigation.updateCurrentEntry({ state: { n: 'outside' } });
+
+			expect(updates.map((update) => update.action)).toEqual(['update']);
+			expect(history.location.state).toEqual({ n: 'outside' });
+		});
+
+		// `currententrychange` fires for navigations too, which the intercept handler already reports.
+		it('reports a navigation once, not twice', async () => {
+			const { history } = await open();
+			const updates = reported(history);
+
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			await written(history, () => history.replace(`${PROBE}?n=b`));
+			await written(history, () => history.back());
+			await sleep(50);
+
+			expect(updates.map((update) => update.action)).toEqual(['push', 'replace', 'traverse']);
 		});
 
 		it('leaves a download to the browser, and reports nothing', async () => {
