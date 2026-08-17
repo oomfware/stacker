@@ -114,8 +114,6 @@ export class Router<R extends RouteRegistry<unknown>> {
 		this.#view = this.#recompute();
 
 		this.#unlisten = this.#history.listen(async ({ action, location: next, scroll }) => {
-			// a state write leaves the URL alone, so every warm entry and the view survive it untouched; only
-			// readers of the location have anything to see.
 			if (action === 'update') {
 				this.#updates.emit();
 				return;
@@ -124,7 +122,6 @@ export class Router<R extends RouteRegistry<unknown>> {
 			const win = this.#win;
 			const restoring = scroll === 'auto' && win !== null;
 			if (restoring) {
-				// the outgoing screen is still the one on screen here, before react re-renders.
 				const outgoing = this.#entries.get(this.#activeKey);
 				if (outgoing !== undefined) {
 					outgoing.scrollPos = { x: win.scrollX, y: win.scrollY };
@@ -133,8 +130,6 @@ export class Router<R extends RouteRegistry<unknown>> {
 
 			this.#prune();
 
-			// only a traversal returns to a screen the user has already scrolled; a push opens a new one, and a
-			// replace reuses the outgoing slot, so the offset just saved under it is stale.
 			const saved = action === 'traverse' ? this.#entries.get(next.key)?.scrollPos : undefined;
 			const target = saved ?? TOP;
 
@@ -144,12 +139,10 @@ export class Router<R extends RouteRegistry<unknown>> {
 			this.#view = this.#recompute();
 			this.#pendingScroll = restoring ? target : null;
 
-			// register before notifying because subscribers may render synchronously.
 			const committed = this.#awaitCommit();
 			this.#updates.emit();
 			await committed;
 
-			// an attached view already applied this from inside the commit; this is the headless fallback.
 			this.restoreScroll();
 		});
 	}
