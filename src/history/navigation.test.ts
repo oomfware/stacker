@@ -11,12 +11,44 @@ interface Probe {
 	readonly win: Window & { sentinel?: string };
 }
 
-const open = async (options: Omit<NavigationHistoryOptions, 'window'> = {}): Promise<Probe> => {
+const SAFARI =
+	'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15';
+
+const open = async (
+	options: Omit<NavigationHistoryOptions, 'window'> = {},
+	userAgent?: string,
+): Promise<Probe> => {
 	const win = await openProbe();
+	if (userAgent !== undefined) {
+		Object.defineProperty(win.navigator, 'userAgent', { value: userAgent });
+	}
 	return { history: disposed(new NavigationHistory({ ...options, window: win })), win };
 };
 
+const caught = async (userAgent?: string): Promise<{ errors: unknown[]; history: NavigationHistory }> => {
+	const errors: unknown[] = [];
+	const { history } = await open(
+		{
+			onError: (error) => {
+				errors.push(error);
+			},
+		},
+		userAgent,
+	);
+	return { errors, history };
+};
+
 const urls = (history: History): (string | null)[] => history.entries().map((entry) => entry.url);
+
+const focusedInput = (win: Window): HTMLInputElement => {
+	const input = win.document.createElement('input');
+	win.document.body.append(input);
+	input.focus();
+	if (win.document.activeElement !== input) {
+		throw new Error('the probe input did not take focus');
+	}
+	return input;
+};
 
 const reported = (history: History): HistoryUpdate[] => {
 	const updates: HistoryUpdate[] = [];
@@ -215,16 +247,6 @@ describe('NavigationHistory', () => {
 	});
 
 	describe('scroll and focus', () => {
-		const focusedInput = (win: Window): HTMLInputElement => {
-			const input = win.document.createElement('input');
-			win.document.body.append(input);
-			input.focus();
-			if (win.document.activeElement !== input) {
-				throw new Error('the probe input did not take focus');
-			}
-			return input;
-		};
-
 		it('turns off the browser`s own scroll restoration, which the router replaces', async () => {
 			const { win } = await open();
 			expect(win.history.scrollRestoration).toBe('manual');
@@ -276,16 +298,6 @@ describe('NavigationHistory', () => {
 	});
 
 	describe('failures', () => {
-		const caught = async (): Promise<{ errors: unknown[]; history: NavigationHistory }> => {
-			const errors: unknown[] = [];
-			const { history } = await open({
-				onError: (error) => {
-					errors.push(error);
-				},
-			});
-			return { errors, history };
-		};
-
 		it('reports an in-app render that threw, instead of leaving a silent no-op', async () => {
 			const { errors, history } = await caught();
 			history.listen(() => {
@@ -316,6 +328,87 @@ describe('NavigationHistory', () => {
 			await sleep(50);
 
 			expect(errors).toEqual([]);
+		});
+	});
+
+	describe('traversal interception', () => {
+		const intercepts = (win: Window): NavigationType[] => {
+			const types: NavigationType[] = [];
+			const proto = (win as Window & typeof globalThis).NavigateEvent.prototype;
+			// oxlint-disable-next-line typescript/unbound-method -- called with the event as `this`
+			const original = proto.intercept;
+			proto.intercept = function (this: NavigateEvent, options) {
+				types.push(this.navigationType);
+				original.call(this, options);
+			};
+			return types;
+		};
+
+		it('intercepts traversals', async () => {
+			const { history, win } = await open();
+			const types = intercepts(win);
+
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			await written(history, () => history.back());
+
+			expect(types).toEqual(['push', 'traverse']);
+		});
+
+		it('on WebKit, intercepts only writes and reports each navigation once', async () => {
+			const { history, win } = await open({}, SAFARI);
+			const types = intercepts(win);
+			const updates = reported(history);
+
+			await written(history, () => history.push(`${PROBE}?n=a`, { state: { n: 'a' } }));
+			await written(history, () => history.push(`${PROBE}?n=b`));
+			const update = await written(history, () => history.back());
+			await sleep(50);
+
+			expect(types).toEqual(['push', 'push']);
+			expect(updates.map((u) => u.action)).toEqual(['push', 'push', 'traverse']);
+			expect(update.scroll).toBe('auto');
+			expect(history.location.search).toBe('?n=a');
+			expect(history.location.state).toEqual({ n: 'a' });
+		});
+
+		it('on WebKit, resets traversal focus to the body without retaining tabindex', async () => {
+			const { history, win } = await open({}, SAFARI);
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			focusedInput(win);
+
+			await written(history, () => history.back());
+
+			await until(() => win.document.activeElement === win.document.body, 'focus to reset after a traversal');
+			expect(win.document.body.hasAttribute('tabindex')).toBe(false);
+		});
+
+		it('on WebKit, preserves focus set during rendering', async () => {
+			const { history, win } = await open({}, SAFARI);
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			focusedInput(win);
+			const target = win.document.createElement('input');
+			win.document.body.append(target);
+			history.listen(() => {
+				target.focus();
+			});
+
+			await written(history, () => history.back());
+			await sleep(50);
+
+			expect(win.document.activeElement).toBe(target);
+		});
+
+		it('on WebKit, reports traversal render errors', async () => {
+			const { errors, history } = await caught(SAFARI);
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			history.listen(() => {
+				throw new Error('the render blew up');
+			});
+
+			history.back();
+			await until(() => errors.length > 0, 'the failed render to be reported');
+
+			expect((errors[0] as Error).message).toBe('the render blew up');
 		});
 	});
 

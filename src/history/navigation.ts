@@ -60,6 +60,10 @@ const toAction = (type: NavigationType): HistoryAction | undefined => {
 const isAbort = (error: unknown): boolean =>
 	typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError';
 
+// Chromium's UA includes AppleWebKit; Chrome on iOS uses CriOS.
+const isWebKit = (userAgent: string): boolean =>
+	/AppleWebKit\//.test(userAgent) && !/(?:Chrome|Chromium)\//.test(userAgent);
+
 /**
  * history implementation backed by the web navigation API.
  *
@@ -75,10 +79,16 @@ export class NavigationHistory implements History {
 	#disposed = false;
 	#location: HistoryLocation;
 
+	// WebKit delays dismissing the swipe-back snapshot when a traversal is intercepted with a wheel
+	// listener attached: https://bugs.webkit.org/show_bug.cgi?id=319414
+	// render these traversals through `currententrychange` instead.
+	readonly #interceptTraversals: boolean;
+
 	constructor(options: NavigationHistoryOptions = {}) {
 		this.#win = options.window ?? window;
 		this.#nav = this.#win.navigation;
 		this.#ignore = options.ignore;
+		this.#interceptTraversals = !isWebKit(this.#win.navigator.userAgent);
 		this.#onError =
 			options.onError ??
 			((error: unknown) => {
@@ -223,6 +233,10 @@ export class NavigationHistory implements History {
 	}
 
 	readonly #onCurrentEntryChange = (event: NavigationCurrentEntryChangeEvent): void => {
+		if (event.navigationType === 'traverse' && !this.#interceptTraversals) {
+			this.#report(this.#traverseUnintercepted());
+			return;
+		}
 		if (event.navigationType !== null) {
 			return;
 		}
@@ -238,12 +252,40 @@ export class NavigationHistory implements History {
 		);
 	};
 
+	async #traverseUnintercepted(): Promise<void> {
+		const doc = this.#win.document;
+		const focused = doc.activeElement;
+
+		this.#location = this.#read();
+		await this.#notify({ action: 'traverse', info: undefined, location: this.#location, scroll: 'auto' });
+
+		// preserve focus set during rendering.
+		if (doc.activeElement !== focused) {
+			return;
+		}
+
+		// focus the body to reset the sequential focus navigation starting point; blur alone does not.
+		const body = doc.body;
+		const hadTabIndex = body.hasAttribute('tabindex');
+		if (!hadTabIndex) {
+			body.tabIndex = -1;
+		}
+
+		body.focus({ preventScroll: true });
+		if (!hadTabIndex) {
+			body.removeAttribute('tabindex');
+		}
+	}
+
 	readonly #onNavigate = (event: NavigateEvent): void => {
 		const action = toAction(event.navigationType);
 		if (action === undefined || !event.canIntercept) {
 			return;
 		}
 		if (event.downloadRequest !== null || event.formData !== null) {
+			return;
+		}
+		if (action === 'traverse' && !this.#interceptTraversals) {
 			return;
 		}
 		// ignored writes load a new document, while an ignored traversal would only desynchronize this one.
