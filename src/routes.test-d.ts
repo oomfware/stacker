@@ -19,25 +19,25 @@ const Dummy = (): null => null;
 
 const routes = defineRoutes({
 	app: layout({
+		component: Dummy,
 		children: {
 			Feed: route({
-				component: Dummy,
 				path: '/feed',
 				query: { sort: withDefault(enumOf(['hot', 'new']), 'hot') },
-			}),
-			Home: route({ component: Dummy, path: '/', type: 'singleton' }),
-			PostThread: route({
 				component: Dummy,
-				params: { didOrHandle: actorId(), rkey: string() },
+			}),
+			Home: route({ path: '/', type: 'singleton', component: Dummy }),
+			PostThread: route({
 				path: '/profile/:didOrHandle/post/:rkey',
+				params: { didOrHandle: actorId(), rkey: string() },
+				component: Dummy,
 			}),
 			Search: route({
-				component: Dummy,
 				path: '/search',
 				query: { q: string(), type: optional(enumOf(['feed', 'profile', 'user'])) },
+				component: Dummy,
 			}),
 		},
-		component: Dummy,
 	}),
 });
 

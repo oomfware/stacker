@@ -10,34 +10,34 @@ export type HistoryAction = 'push' | 'replace' | 'traverse' | 'update';
 
 /** an entry in the browser session history ledger. */
 export interface HistoryEntry {
+	/** slot identity preserved across replacements. */
+	readonly key: string;
 	/** unique per-revision identifier. */
 	readonly id: string;
 	/** entry position in the ledger. */
 	readonly index: number;
-	/** slot identity preserved across replacements. */
-	readonly key: string;
+	/** entry URL or null if hidden. */
+	readonly url: string | null;
 	/** whether traversal to this entry stays within the current document. */
 	readonly sameDocument: boolean;
 	/** state associated with the entry. */
 	readonly state: unknown;
-	/** entry URL or null if hidden. */
-	readonly url: string | null;
 }
 
 /** active history entry with parsed URL components. */
 export interface HistoryLocation {
-	/** URL fragment including the leading hash symbol. */
-	readonly hash: string;
+	/** slot identity. */
+	readonly key: string;
 	/** per-revision identifier. */
 	readonly id: string;
 	/** entry position in the ledger. */
 	readonly index: number;
-	/** slot identity. */
-	readonly key: string;
 	/** URL pathname starting with a slash. */
 	readonly pathname: string;
 	/** URL query string including the leading question mark. */
 	readonly search: string;
+	/** URL fragment including the leading hash symbol. */
+	readonly hash: string;
 	/** state associated with the entry. */
 	readonly state: unknown;
 }
@@ -55,22 +55,22 @@ export type HistoryScrollBehavior = 'auto' | 'preserve';
 
 /** options for history write operations. */
 export interface HistoryNavigateOptions {
-	/** arbitrary metadata passed to history listeners. */
-	readonly info?: unknown;
-	/** scroll and focus behavior. */
-	readonly scroll?: HistoryScrollBehavior;
 	/** state data associated with the entry. */
 	readonly state?: unknown;
+	/** scroll and focus behavior. */
+	readonly scroll?: HistoryScrollBehavior;
+	/** arbitrary metadata passed to history listeners. */
+	readonly info?: unknown;
 }
 
 /** history update details dispatched to listeners. */
 export interface HistoryUpdate {
 	readonly action: HistoryAction;
-	/** metadata passed to the write operation. */
-	readonly info: unknown;
 	readonly location: HistoryLocation;
 	/** viewport behavior, which listeners apply. */
 	readonly scroll: HistoryScrollBehavior;
+	/** metadata passed to the write operation. */
+	readonly info: unknown;
 }
 
 /**
@@ -82,37 +82,18 @@ export type HistoryListener = (update: HistoryUpdate) => void | Promise<void>;
 
 /** history manager interface modeled on the web navigation API. */
 export interface History {
+	/** active history location. */
+	readonly location: HistoryLocation;
 	/** whether a backward entry exists. */
 	readonly canGoBack: boolean;
 	/** whether a forward entry exists. */
 	readonly canGoForward: boolean;
-	/** active history location. */
-	readonly location: HistoryLocation;
-	/** navigates back one entry. */
-	back(): void;
-	/** detaches listeners and cleans up resources. */
-	dispose(): void;
 	/**
 	 * lists all entries in the ledger.
 	 *
 	 * @returns array of history entries
 	 */
 	entries(): readonly HistoryEntry[];
-	/** navigates forward one entry. */
-	forward(): void;
-	/**
-	 * navigates by a delta offset.
-	 *
-	 * @param delta number of entries to move
-	 */
-	go(delta: number): void;
-	/**
-	 * subscribes to history updates.
-	 *
-	 * @param listener update callback
-	 * @returns unsubscribe function
-	 */
-	listen(listener: HistoryListener): () => void;
 	/**
 	 * pushes a new history entry.
 	 *
@@ -128,13 +109,6 @@ export interface History {
 	 */
 	replace(to: string, options?: HistoryNavigateOptions): void;
 	/**
-	 * navigates to an existing entry by key.
-	 *
-	 * @param key target entry key
-	 * @returns promise that resolves on commit and rejects if traversal fails
-	 */
-	traverseTo(key: string): Promise<void>;
-	/**
 	 * rewrites the state of the active entry in place, without navigating.
 	 *
 	 * the entry keeps its id, key and URL, so no revision is minted and the user's place on the page is left
@@ -144,4 +118,30 @@ export interface History {
 	 * @throws when the state cannot be structured-cloned
 	 */
 	updateState(state: unknown): void;
+	/**
+	 * navigates to an existing entry by key.
+	 *
+	 * @param key target entry key
+	 * @returns promise that resolves on commit and rejects if traversal fails
+	 */
+	traverseTo(key: string): Promise<void>;
+	/**
+	 * navigates by a delta offset.
+	 *
+	 * @param delta number of entries to move
+	 */
+	go(delta: number): void;
+	/** navigates back one entry. */
+	back(): void;
+	/** navigates forward one entry. */
+	forward(): void;
+	/**
+	 * subscribes to history updates.
+	 *
+	 * @param listener update callback
+	 * @returns unsubscribe function
+	 */
+	listen(listener: HistoryListener): () => void;
+	/** detaches listeners and cleans up resources. */
+	dispose(): void;
 }

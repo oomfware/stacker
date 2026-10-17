@@ -4,10 +4,10 @@ import { computeCachedKeys } from './cache.ts';
 import type { CacheEntryRef } from './cache.ts';
 
 const entries: CacheEntryRef[] = [
-	{ index: 0, key: 'a' },
-	{ index: 1, key: 'b' },
-	{ index: 2, key: 'c' },
-	{ index: 3, key: 'd' },
+	{ key: 'a', index: 0 },
+	{ key: 'b', index: 1 },
+	{ key: 'c', index: 2 },
+	{ key: 'd', index: 3 },
 ];
 
 describe('computeCachedKeys', () => {
@@ -53,9 +53,9 @@ describe('computeCachedKeys', () => {
 
 	it('reads the active entry by key, not by the first ref sharing its index', () => {
 		const shared: CacheEntryRef[] = [
-			{ index: 0, key: 'a' },
-			{ index: 1, key: 'stale' },
-			{ index: 1, key: 'b' },
+			{ key: 'a', index: 0 },
+			{ key: 'stale', index: 1 },
+			{ key: 'b', index: 1 },
 		];
 
 		const cached = computeCachedKeys(shared, 'b', [], { max: 5 });

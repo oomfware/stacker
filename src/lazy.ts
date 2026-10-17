@@ -14,8 +14,8 @@ export type LazyComponent<T extends ComponentType<any>> = LazyExoticComponent<T>
 };
 
 interface LazyInternals {
-	_init(payload: unknown): unknown;
 	_payload: unknown;
+	_init(payload: unknown): unknown;
 }
 
 const noop = (): void => {};

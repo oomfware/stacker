@@ -17,30 +17,30 @@ const csv = (): Codec<string[]> => ({
 
 const routes = defineRoutes({
 	app: layout({
+		component: Dummy,
 		children: {
 			Feed: route({
-				component: Dummy,
 				path: '/feed',
 				query: { q: optional(string()), sort: withDefault(enumOf(['hot', 'new']), 'hot') },
-			}),
-			Home: route({ component: Dummy, path: '/', type: 'singleton' }),
-			Page: route({ component: Dummy, path: '/page' }),
-			Profile: route({
 				component: Dummy,
-				params: { actor: string() },
-				path: '/profile/:actor',
-				type: 'singleton',
 			}),
-			Search: route({ component: Dummy, path: '/search', query: { q: string() }, type: 'singleton' }),
-			Tab: route({ component: Dummy, path: '/tab', query: { q: optional(string()) }, type: 'singleton' }),
-			Tags: route({ component: Dummy, path: '/tags', query: { tags: csv() } }),
+			Home: route({ path: '/', type: 'singleton', component: Dummy }),
+			Page: route({ path: '/page', component: Dummy }),
+			Profile: route({
+				path: '/profile/:actor',
+				params: { actor: string() },
+				type: 'singleton',
+				component: Dummy,
+			}),
+			Search: route({ path: '/search', query: { q: string() }, type: 'singleton', component: Dummy }),
+			Tab: route({ path: '/tab', query: { q: optional(string()) }, type: 'singleton', component: Dummy }),
+			Tags: route({ path: '/tags', query: { tags: csv() }, component: Dummy }),
 		},
-		component: Dummy,
 	}),
 });
 
 const make = (initialEntries: string[] = ['/'], pins?: string[]) =>
-	new Router({ history: new MemoryHistory({ initialEntries }), pins, routes });
+	new Router({ routes, history: new MemoryHistory({ initialEntries }), pins });
 
 const activeLeaf = (router: Router<typeof routes>): string | undefined => router.view.activePath.at(-1);
 
@@ -260,7 +260,7 @@ describe('Router', () => {
 		it('preserves the entry state, which a bare replace would drop', () => {
 			const history = new MemoryHistory({ initialEntries: ['/feed'] });
 			history.replace('/feed', { state: { scrollAnchor: 42 } });
-			const router = new Router({ history, routes });
+			const router = new Router({ routes, history });
 
 			router.replace('Feed', { q: 'cats' });
 
@@ -285,7 +285,7 @@ describe('Router', () => {
 
 			const replaced = make(['/feed?q=cats']);
 			const beforeReplace = activeLeaf(replaced);
-			replaced.navigate({ replace: true, to: '/feed?q=dogs' });
+			replaced.navigate({ to: '/feed?q=dogs', replace: true });
 			expect(activeLeaf(replaced)).toBe(beforeReplace);
 		});
 
@@ -302,7 +302,7 @@ describe('Router', () => {
 			const router = make(['/feed?q=cats']);
 			const before = activeLeaf(router);
 
-			router.navigate({ replace: true, to: '/page' });
+			router.navigate({ to: '/page', replace: true });
 
 			expect(activeLeaf(router)).not.toBe(before);
 		});
@@ -317,7 +317,7 @@ describe('Router', () => {
 			expect(router.location.pathname).toBe('/profile/alice');
 			expect(router.location.index).toBe(1);
 
-			router.navigate({ replace: true, to: { name: 'Page' } });
+			router.navigate({ to: { name: 'Page' }, replace: true });
 
 			expect(router.location.pathname).toBe('/page');
 			expect(router.location.index).toBe(1);
@@ -335,7 +335,7 @@ describe('Router', () => {
 		it('passes entry state through to history', () => {
 			const router = make(['/']);
 
-			router.navigate({ state: { anchor: 42 }, to: { name: 'Page' } });
+			router.navigate({ to: { name: 'Page' }, state: { anchor: 42 } });
 
 			expect(router.location.state).toEqual({ anchor: 42 });
 		});
@@ -361,7 +361,7 @@ describe('Router', () => {
 		// the router is only ever one listener on a history, so it cannot rely on having made the write itself.
 		it('notifies subscribers of a state write it did not make', () => {
 			const history = new MemoryHistory({ initialEntries: ['/feed'] });
-			const router = new Router({ history, routes });
+			const router = new Router({ routes, history });
 			let notified = 0;
 			router.subscribe(() => {
 				notified += 1;
@@ -424,7 +424,7 @@ describe('Router', () => {
 		}
 
 		const stranded = (initialEntries: string[]) =>
-			new Router({ history: new StrandedHistory({ initialEntries }), routes });
+			new Router({ routes, history: new StrandedHistory({ initialEntries }) });
 
 		it('traverses back to the nearest matching entry instead of pushing a duplicate', () => {
 			const router = make(['/']);
@@ -580,7 +580,7 @@ describe('Router', () => {
 
 		it('releases a navigation parked on a commit that will never arrive', async () => {
 			const history = new AwaitingHistory({ initialEntries: ['/'] });
-			const router = new Router({ history, routes });
+			const router = new Router({ routes, history });
 			router.attachView();
 
 			router.navigate({ to: '/page' });
@@ -612,20 +612,20 @@ describe('Router preload', () => {
 
 	const preloadRoutes = defineRoutes({
 		app: layout({
-			children: {
-				Other: route({ component: other, path: '/other' }),
-				Page: route({ component: page, params: { id: string() }, path: '/page/:id' }),
-				Plain: route({ component: Dummy, path: '/plain' }),
-			},
 			component: shell,
+			children: {
+				Other: route({ path: '/other', component: other }),
+				Page: route({ path: '/page/:id', params: { id: string() }, component: page }),
+				Plain: route({ path: '/plain', component: Dummy }),
+			},
 		}),
 	});
 
 	const open = () =>
 		disposed(
 			new Router({
-				history: new MemoryHistory({ initialEntries: ['/other'] }),
 				routes: preloadRoutes,
+				history: new MemoryHistory({ initialEntries: ['/other'] }),
 			}),
 		);
 
@@ -704,11 +704,11 @@ describe('Router preload', () => {
 				throw new Error('boom');
 			},
 		});
-		const brokenRoutes = defineRoutes({ Boom: route({ component: boom, path: '/boom' }) });
+		const brokenRoutes = defineRoutes({ Boom: route({ path: '/boom', component: boom }) });
 
 		expect(() =>
 			disposed(
-				new Router({ history: new MemoryHistory({ initialEntries: ['/boom'] }), routes: brokenRoutes }),
+				new Router({ routes: brokenRoutes, history: new MemoryHistory({ initialEntries: ['/boom'] }) }),
 			),
 		).not.toThrow();
 	});
@@ -719,17 +719,17 @@ describe('Router splat navigation', () => {
 	// directly bypasses the `new URL()` resolution that makes dot segments dangerous.
 	const splatRoutes = defineRoutes({
 		app: layout({
-			children: {
-				Admin: route({ component: Dummy, path: '/admin' }),
-				Docs: route({ component: Dummy, params: { rest: nonEmpty() }, path: '/docs/*rest' }),
-				DocsIndex: route({ component: Dummy, path: '/docs' }),
-			},
 			component: Dummy,
+			children: {
+				Admin: route({ path: '/admin', component: Dummy }),
+				Docs: route({ path: '/docs/*rest', params: { rest: nonEmpty() }, component: Dummy }),
+				DocsIndex: route({ path: '/docs', component: Dummy }),
+			},
 		}),
 	});
 
 	const open = (initialEntries: string[] = ['/']) =>
-		new Router({ history: new MemoryHistory({ initialEntries }), routes: splatRoutes });
+		new Router({ routes: splatRoutes, history: new MemoryHistory({ initialEntries }) });
 
 	// activePath holds instance keys, so anchor to the leaf's node id to keep `Docs` from matching `DocsIndex`.
 	const leafIs = (router: Router<typeof splatRoutes>, leaf: string): boolean =>
@@ -765,18 +765,18 @@ describe('Router splat navigation', () => {
 describe('Router on the navigation API', () => {
 	const probeRoutes = defineRoutes({
 		app: layout({
-			children: {
-				Other: route({ component: Dummy, path: '/other' }),
-				Probe: route({ component: Dummy, path: PROBE, query: { q: optional(string()) } }),
-			},
 			component: Dummy,
+			children: {
+				Other: route({ path: '/other', component: Dummy }),
+				Probe: route({ path: PROBE, query: { q: optional(string()) }, component: Dummy }),
+			},
 		}),
 	});
 
 	// the router reads and writes scroll on its own window, so it has to be pointed at the probe frame too.
 	const openOn = (win: Window): Router<typeof probeRoutes> =>
 		disposed(
-			new Router({ history: new NavigationHistory({ window: win }), routes: probeRoutes, window: win }),
+			new Router({ routes: probeRoutes, history: new NavigationHistory({ window: win }), window: win }),
 		);
 
 	const open = async (): Promise<Router<typeof probeRoutes>> => openOn(await openProbe());
@@ -841,7 +841,7 @@ describe('Router on the navigation API', () => {
 
 		const replaced = await open();
 		const beforeReplace = leafOf(replaced);
-		await settled(replaced, () => replaced.navigate({ replace: true, to: `${PROBE}?q=replaced` }));
+		await settled(replaced, () => replaced.navigate({ to: `${PROBE}?q=replaced`, replace: true }));
 		expect(replaced.location.search).toBe('?q=replaced');
 		expect(leafOf(replaced)).toBe(beforeReplace);
 	});

@@ -9,17 +9,17 @@ import type { InstanceNode, PoolEntry, View } from './view-model.ts';
 
 const registry = defineRoutes({
 	app: layout({
+		component: Dummy,
 		children: {
-			Home: route({ component: Dummy, path: '/', query: { q: optional(string()) }, type: 'singleton' }),
-			Profile: route({ component: Dummy, params: { actor: string() }, path: '/profile/:actor' }),
+			Home: route({ path: '/', query: { q: optional(string()) }, type: 'singleton', component: Dummy }),
+			Profile: route({ path: '/profile/:actor', params: { actor: string() }, component: Dummy }),
 			messages: layout({
-				children: {
-					Convo: route({ component: Dummy, params: { convo: string() }, path: '/messages/:convo' }),
-				},
 				component: Dummy,
+				children: {
+					Convo: route({ path: '/messages/:convo', params: { convo: string() }, component: Dummy }),
+				},
 			}),
 		},
-		component: Dummy,
 	}),
 });
 
@@ -88,11 +88,11 @@ describe('computeView', () => {
 		it('does not share a layout instance across different layout params', () => {
 			const parameterized = defineRoutes({
 				profile: layout({
-					children: {
-						Posts: route({ component: Dummy, params: { actor: string() }, path: '/profile/:actor/posts' }),
-					},
-					component: Dummy,
 					params: { actor: string() },
+					component: Dummy,
+					children: {
+						Posts: route({ path: '/profile/:actor/posts', params: { actor: string() }, component: Dummy }),
+					},
 				}),
 			});
 			const m = new Matcher(parameterized);

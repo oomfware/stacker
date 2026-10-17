@@ -12,11 +12,11 @@ export interface MatchedNode {
 
 /** the result of matching a URL, containing the chain, leaf, name, and parameters. */
 export interface RouteMatch {
-	readonly chain: readonly MatchedNode[];
-	readonly leaf: ResolvedLeaf;
 	readonly name: string;
 	/** leaf parameters, combining path and query. */
 	readonly params: Readonly<Record<string, unknown>>;
+	readonly leaf: ResolvedLeaf;
+	readonly chain: readonly MatchedNode[];
 }
 
 /**
@@ -40,18 +40,18 @@ export const resolveMeta = <K extends keyof RouteMeta>(
 };
 
 interface CompiledLeaf {
+	readonly leaf: ResolvedLeaf;
+	readonly regex: RegExp;
+	readonly paramNames: readonly string[];
 	/** whether the last entry of `paramNames` is a trailing splat. */
 	readonly hasSplat: boolean;
-	readonly leaf: ResolvedLeaf;
-	readonly paramNames: readonly string[];
-	readonly regex: RegExp;
 }
 
 const SEGMENT = /:[A-Za-z_]\w*/g;
 
 const escapeRegExp = (segment: string): string => segment.replaceAll(/[$()*+.?[\\\]^{|}]/g, '\\$&');
 
-const compile = (path: string): { hasSplat: boolean; paramNames: string[]; regex: RegExp } => {
+const compile = (path: string): { regex: RegExp; paramNames: string[]; hasSplat: boolean } => {
 	const { head, splat } = splitSplat(path);
 
 	const paramNames: string[] = [];
@@ -72,11 +72,11 @@ const compile = (path: string): { hasSplat: boolean; paramNames: string[]; regex
 	if (splat !== undefined) {
 		paramNames.push(splat);
 		// the whole tail is optional, so `/docs/*rest` matches `/docs` and `/docs/` with an empty remainder.
-		return { hasSplat: true, paramNames, regex: new RegExp(`^${pattern}(?:/(.*))?$`) };
+		return { regex: new RegExp(`^${pattern}(?:/(.*))?$`), paramNames, hasSplat: true };
 	}
 
 	const suffix = pattern.endsWith('/') ? '' : '/?';
-	return { hasSplat: false, paramNames, regex: new RegExp(`^${pattern}${suffix}$`) };
+	return { regex: new RegExp(`^${pattern}${suffix}$`), paramNames, hasSplat: false };
 };
 
 /** matches URLs in declaration order against a compiled route registry. */
@@ -85,14 +85,14 @@ export class Matcher {
 
 	constructor(registry: RouteRegistry<unknown>) {
 		this.#compiled = [...registry.leaves.values()].map((leaf) => {
-			const { hasSplat, paramNames, regex } = compile(leaf.path);
-			return { hasSplat, leaf, paramNames, regex };
+			const { regex, paramNames, hasSplat } = compile(leaf.path);
+			return { leaf, regex, paramNames, hasSplat };
 		});
 	}
 
 	match(pathname: string, search = '', hash = ''): RouteMatch | undefined {
 		const rawSearch = new URLSearchParams(search);
-		const ctx: WhenContext = { hash, pathname, rawSearch, search };
+		const ctx: WhenContext = { pathname, search, hash, rawSearch };
 
 		for (const compiled of this.#compiled) {
 			const { leaf, regex } = compiled;
@@ -125,14 +125,14 @@ export class Matcher {
 				return { node, params: node.kind === 'route' ? { ...own, ...query } : own };
 			});
 			// the leaf is the last node and always a route, so its chain params are the leaf params.
-			return { chain, leaf, name: leaf.name, params: chain.at(-1)?.params ?? {} };
+			return { name: leaf.name, params: chain.at(-1)?.params ?? {}, leaf, chain };
 		}
 
 		return undefined;
 	}
 
 	#rawValues(
-		{ hasSplat, paramNames }: CompiledLeaf,
+		{ paramNames, hasSplat }: CompiledLeaf,
 		execed: RegExpExecArray,
 	): Record<string, string> | undefined {
 		const splatIndex = hasSplat ? paramNames.length - 1 : -1;

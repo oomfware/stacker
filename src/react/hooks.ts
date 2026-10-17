@@ -91,12 +91,12 @@ export const useFocusEffect = (effect: EffectCallback): void => {
 
 /** typed hooks bound to a specific route registry. */
 export interface RouterHooks<R extends RouteRegistry<unknown>> {
-	/** gets a route's parameters and a setter that patches its query in place. */
-	useParams<K extends RouteName<R>>(name: K): readonly [ParamsOf<R, K>, (patch: QueryPatchOf<R, K>) => void];
 	/** gets the typed router instance. */
 	useRouter(): Router<R>;
 	/** gets the active route's name and parameters. */
 	useTarget(): MatchedTarget<R>;
+	/** gets a route's parameters and a setter that patches its query in place. */
+	useParams<K extends RouteName<R>>(name: K): readonly [ParamsOf<R, K>, (patch: QueryPatchOf<R, K>) => void];
 }
 
 /**
@@ -124,6 +124,13 @@ export const createRouterHooks = <R extends RouteRegistry<unknown>>(routes: R): 
 	};
 
 	return {
+		useRouter: useTypedRouter,
+
+		useTarget() {
+			const router = useTypedRouter();
+			return useSyncExternalStore(router.subscribe, () => router.target);
+		},
+
 		useParams<K extends RouteName<R>>(
 			name: K,
 		): readonly [ParamsOf<R, K>, (patch: QueryPatchOf<R, K>) => void] {
@@ -146,13 +153,6 @@ export const createRouterHooks = <R extends RouteRegistry<unknown>>(routes: R): 
 
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- guarded by the name check above
 			return [current.node.params as ParamsOf<R, K>, replace];
-		},
-
-		useRouter: useTypedRouter,
-
-		useTarget() {
-			const router = useTypedRouter();
-			return useSyncExternalStore(router.subscribe, () => router.target);
 		},
 	};
 };

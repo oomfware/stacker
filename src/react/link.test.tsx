@@ -25,15 +25,15 @@ const Nav = () => (
 
 const routes = defineRoutes({
 	app: layout({
-		children: {
-			Home: route({ component: () => null, path: '/', type: 'singleton' }),
-			Page: route({ component: () => null, path: '/page' }),
-		},
 		component: Nav,
+		children: {
+			Home: route({ path: '/', type: 'singleton', component: () => null }),
+			Page: route({ path: '/page', component: () => null }),
+		},
 	}),
 });
 
-const make = () => new Router({ history: new MemoryHistory({ initialEntries: ['/'] }), routes });
+const make = () => new Router({ routes, history: new MemoryHistory({ initialEntries: ['/'] }) });
 
 // keep unhandled anchors from navigating the test runner.
 const swallow = (event: Event): void => event.preventDefault();

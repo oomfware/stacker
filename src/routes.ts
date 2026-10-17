@@ -37,29 +37,29 @@ export type ReadonlyURLSearchParams = Omit<URLSearchParams, 'append' | 'delete' 
 
 /** context passed to a route `when` predicate. */
 export interface WhenContext {
-	readonly hash: string;
 	readonly pathname: string;
-	readonly rawSearch: ReadonlyURLSearchParams;
 	readonly search: string;
+	readonly hash: string;
+	readonly rawSearch: ReadonlyURLSearchParams;
 }
 
 interface LeafShared<Params extends CodecRecord, Query extends CodecRecord> {
+	/** absolute URL path pattern. */
+	readonly path: string;
+	/** path parameter codecs. */
+	readonly params?: Params;
+	/** query parameter codecs. */
+	readonly query?: Query;
+	/** dynamic predicate for route matching. */
+	readonly when?: (ctx: WhenContext) => boolean;
+	/** instance-keying strategy. */
+	readonly type?: LeafType;
 	/** component to render. */
 	readonly component: ComponentType;
 	/** suspense fallback component. */
 	readonly fallback?: ReactNode;
 	/** application metadata. */
 	readonly meta?: RouteMeta;
-	/** path parameter codecs. */
-	readonly params?: Params;
-	/** absolute URL path pattern. */
-	readonly path: string;
-	/** query parameter codecs. */
-	readonly query?: Query;
-	/** instance-keying strategy. */
-	readonly type?: LeafType;
-	/** dynamic predicate for route matching. */
-	readonly when?: (ctx: WhenContext) => boolean;
 }
 
 /** configuration for a navigable leaf route. */
@@ -75,19 +75,19 @@ export interface RouteLeaf<
 
 /** configuration for an interior layout node. */
 export interface LayoutConfig<Children extends RouteChildren, Params extends CodecRecord> {
-	/** nested child nodes. */
-	readonly children: Children;
+	/**
+	 * codecs for layout parameters. parameter names must appear in all descendant leaf paths, allowing layouts
+	 * to decode their own values.
+	 */
+	readonly params?: Params;
 	/** layout component rendering an outlet. */
 	readonly component: ComponentType;
 	/** suspense fallback component. */
 	readonly fallback?: ReactNode;
 	/** application metadata. */
 	readonly meta?: RouteMeta;
-	/**
-	 * codecs for layout parameters. parameter names must appear in all descendant leaf paths, allowing layouts
-	 * to decode their own values.
-	 */
-	readonly params?: Params;
+	/** nested child nodes. */
+	readonly children: Children;
 }
 
 /** an interior layout node. */
@@ -134,26 +134,26 @@ export interface ResolvedNode {
 	readonly id: string;
 	/** key name within the parent record. */
 	readonly key: string;
-	readonly node: RouteNode;
-	/** local parameter codecs. */
-	readonly params: CodecRecord;
 	/** absolute path pattern if a route. */
 	readonly path: string | undefined;
+	/** local parameter codecs. */
+	readonly params: CodecRecord;
+	readonly node: RouteNode;
 }
 
 /** a leaf node resolved with its ancestors and metadata. */
 export interface ResolvedLeaf {
-	/** ancestors list from root to leaf. */
-	readonly chain: readonly ResolvedNode[];
-	readonly leaf: RouteLeaf;
 	/** unique route name. */
 	readonly name: string;
-	/** path parameter codecs. */
-	readonly params: CodecRecord;
 	/** absolute path pattern. */
 	readonly path: string;
+	/** path parameter codecs. */
+	readonly params: CodecRecord;
 	/** query parameter codecs. */
 	readonly query: CodecRecord;
+	readonly leaf: RouteLeaf;
+	/** ancestors list from root to leaf. */
+	readonly chain: readonly ResolvedNode[];
 }
 
 /** a compiled registry of routes and nodes. */
@@ -244,9 +244,9 @@ export const defineRoutes = <const T>(tree: T & ValidRoutes<T>): RouteRegistry<T
 				kind: node.kind,
 				id,
 				key,
-				node,
-				params,
 				path: node.kind === 'route' ? node.path : undefined,
+				params,
+				node,
 			};
 			ids.add(id);
 			const chain = [...parentChain, resolved];
@@ -303,7 +303,7 @@ export const defineRoutes = <const T>(tree: T & ValidRoutes<T>): RouteRegistry<T
 				}
 			}
 
-			leaves.set(key, { chain, leaf: node, name: key, params, path: node.path, query });
+			leaves.set(key, { name: key, path: node.path, params, query, leaf: node, chain });
 		}
 	};
 
@@ -322,7 +322,7 @@ type UnionToIntersection<U> = (U extends unknown ? (arg: U) => void : never) ext
 
 export type FlattenChildren<C> = UnionToIntersection<
 	{
-		[K in keyof C]: C[K] extends { readonly children: infer GC; readonly kind: 'layout' }
+		[K in keyof C]: C[K] extends { readonly kind: 'layout'; readonly children: infer GC }
 			? FlattenChildren<GC>
 			: C[K] extends { readonly kind: 'route' }
 				? { readonly [P in K]: C[K] }

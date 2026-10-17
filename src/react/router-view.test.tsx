@@ -38,16 +38,16 @@ const Suspending = () => use(neverLoads);
 
 const routes = defineRoutes({
 	app: layout({
-		children: {
-			Home: route({ component: Home, path: '/', type: 'singleton' }),
-			Profile: route({ component: Profile, params: { actor: string() }, path: '/profile/:actor' }),
-		},
 		component: Shell,
+		children: {
+			Home: route({ path: '/', type: 'singleton', component: Home }),
+			Profile: route({ path: '/profile/:actor', params: { actor: string() }, component: Profile }),
+		},
 	}),
 });
 
 const make = (initialEntries: string[]) =>
-	new Router({ history: new MemoryHistory({ initialEntries }), notFound: NotFound, routes });
+	new Router({ routes, history: new MemoryHistory({ initialEntries }), notFound: NotFound });
 
 // suspended renders must settle inside an asynchronous act.
 const renderSuspending = async (
@@ -55,9 +55,9 @@ const renderSuspending = async (
 	defaultFallback?: ReactNode,
 ): Promise<void> => {
 	const router = new Router({
-		defaultFallback,
-		history: new MemoryHistory({ initialEntries: ['/'] }),
 		routes: suspendingRoutes,
+		history: new MemoryHistory({ initialEntries: ['/'] }),
+		defaultFallback,
 	});
 	await act(async () => {
 		render(<RouterView router={router} />);
@@ -92,9 +92,9 @@ describe('RouterView', () => {
 			await renderSuspending(
 				defineRoutes({
 					app: layout({
-						children: { Home: route({ component: Home, path: '/', type: 'singleton' }) },
 						component: Suspending,
 						fallback: <p>layout loading</p>,
+						children: { Home: route({ path: '/', type: 'singleton', component: Home }) },
 					}),
 				}),
 			);
@@ -106,8 +106,8 @@ describe('RouterView', () => {
 			await renderSuspending(
 				defineRoutes({
 					app: layout({
-						children: { Home: route({ component: Suspending, path: '/', type: 'singleton' }) },
 						component: Shell,
+						children: { Home: route({ path: '/', type: 'singleton', component: Suspending }) },
 					}),
 				}),
 				<p>default loading</p>,
@@ -121,15 +121,15 @@ describe('RouterView', () => {
 			await renderSuspending(
 				defineRoutes({
 					app: layout({
+						component: Shell,
 						children: {
 							Home: route({
-								component: Suspending,
-								fallback: <p>route loading</p>,
 								path: '/',
 								type: 'singleton',
+								component: Suspending,
+								fallback: <p>route loading</p>,
 							}),
 						},
-						component: Shell,
 					}),
 				}),
 				<p>default loading</p>,
@@ -167,15 +167,15 @@ const Screen = ({ label }: { readonly label: string }) => {
 
 const probeRoutes = defineRoutes({
 	app: layout({
+		component: () => <Outlet />,
 		children: {
-			Other: route({ component: () => <Screen label="other" />, path: '/other' }),
+			Other: route({ path: '/other', component: () => <Screen label="other" /> }),
 			Probe: route({
-				component: () => <Screen label="probe" />,
 				path: PROBE,
 				query: { q: optional(string()) },
+				component: () => <Screen label="probe" />,
 			}),
 		},
-		component: () => <Outlet />,
 	}),
 });
 
@@ -197,9 +197,9 @@ const mount = async (max?: number): Promise<Mounted> => {
 	const win = await openProbe();
 	const router = disposed(
 		new Router({
+			routes: probeRoutes,
 			history: new NavigationHistory({ window: win }),
 			max,
-			routes: probeRoutes,
 			window: win,
 		}),
 	);

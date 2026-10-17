@@ -25,26 +25,26 @@ import type { PoolEntry, View } from './view-model.ts';
 
 /** options for a navigation. */
 export interface NavigateOptions<R extends RouteRegistry<unknown>> extends HistoryNavigateOptions {
-	/** replace the active history entry instead. */
-	readonly replace?: boolean;
 	/** where to go */
 	readonly to: RouteTarget<R> | string;
+	/** replace the active history entry instead. */
+	readonly replace?: boolean;
 }
 
 /** options for the router constructor. */
 export interface RouterOptions<R extends RouteRegistry<unknown>> {
-	/** default fallback component shown during lazy chunk loading. */
-	readonly defaultFallback?: ReactNode;
-	/** backing history instance. */
-	readonly history: History;
-	/** maximum number of backward entries to keep warm. */
-	readonly max?: number;
-	/** component rendered when no route matches. */
-	readonly notFound?: ComponentType;
-	/** route names of pathless singleton routes to keep warm for the router's lifetime once first visited. */
-	readonly pins?: readonly string[];
 	/** compiled route registry. */
 	readonly routes: R;
+	/** backing history instance. */
+	readonly history: History;
+	/** component rendered when no route matches. */
+	readonly notFound?: ComponentType;
+	/** default fallback component shown during lazy chunk loading. */
+	readonly defaultFallback?: ReactNode;
+	/** maximum number of backward entries to keep warm. */
+	readonly max?: number;
+	/** route names of pathless singleton routes to keep warm for the router's lifetime once first visited. */
+	readonly pins?: readonly string[];
 	/** window whose scroll position the router restores, defaulting to the global one where there is one. */
 	readonly window?: Window;
 }
@@ -56,13 +56,13 @@ interface ScrollPosition {
 }
 
 interface Entry {
-	readonly index: number;
 	readonly key: string;
+	readonly index: number;
 	readonly match: RouteMatch;
-	/** offset to put the viewport back at when this entry is traversed to. */
-	scrollPos: ScrollPosition;
 	/** the match as a target. */
 	readonly target: LooseTarget;
+	/** offset to put the viewport back at when this entry is traversed to. */
+	scrollPos: ScrollPosition;
 }
 
 const DefaultNotFound: ComponentType = () => null;
@@ -220,7 +220,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 	 * @returns the target it resolves to, or undefined when no route matches
 	 */
 	match(to: string): MatchedTarget<R> | undefined {
-		const { hash, pathname, search } = resolvePath(to, this.#history.location);
+		const { pathname, search, hash } = resolvePath(to, this.#history.location);
 		const match = this.#matcher.match(pathname, search, hash);
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- built from the registry's own match
 		return match === undefined ? undefined : (toTarget(match) as MatchedTarget<R>);
@@ -232,7 +232,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 	 * @param options where to go, and how to get there
 	 */
 	navigate(options: NavigateOptions<R>): void {
-		const { replace = false, to, ...rest } = options;
+		const { to, replace = false, ...rest } = options;
 		const url = typeof to === 'string' ? to : this.#builder.build(to);
 		if (replace) {
 			this.#history.replace(url, rest);
@@ -266,7 +266,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 	 */
 	popTo(to: RouteTarget<R> | string): void {
 		const url = typeof to === 'string' ? to : this.#builder.build(to);
-		const { hash, pathname, search } = resolvePath(url, this.#history.location);
+		const { pathname, search, hash } = resolvePath(url, this.#history.location);
 		const wantedMatch = this.#matcher.match(pathname, search, hash);
 		if (wantedMatch !== undefined) {
 			const wanted = this.#canonical(wantedMatch);
@@ -328,11 +328,11 @@ export class Router<R extends RouteRegistry<unknown>> {
 		}
 		const query = search.toString();
 		const to = createPath({
-			hash: location.hash,
 			pathname: location.pathname,
 			search: query ? `?${query}` : '',
+			hash: location.hash,
 		});
-		this.#history.replace(to, { scroll: 'preserve', state: location.state });
+		this.#history.replace(to, { state: location.state, scroll: 'preserve' });
 	}
 
 	/**
@@ -449,11 +449,11 @@ export class Router<R extends RouteRegistry<unknown>> {
 		void preloadAll(match.leaf.chain);
 
 		const entry: Entry = {
-			index: location.index,
 			key: location.key,
+			index: location.index,
 			match,
-			scrollPos,
 			target: toTarget(match),
+			scrollPos,
 		};
 		this.#entries.set(location.key, entry);
 		this.#recency = [entry.key, ...this.#recency.filter((key) => key !== entry.key)];
@@ -466,8 +466,8 @@ export class Router<R extends RouteRegistry<unknown>> {
 	#recompute(): View {
 		const active = this.#active();
 		const refs: CacheEntryRef[] = [...this.#entries.values()].map((entry) => ({
-			index: entry.index,
 			key: entry.key,
+			index: entry.index,
 		}));
 		const cachedKeys = computeCachedKeys(refs, active.key, this.#recency, { max: this.#max });
 
@@ -501,7 +501,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 		if (Object.keys(leaf.params).length > 0) {
 			throw new Error(`stacker: pinned route '${name}' must have no path params`);
 		}
-		const { hash, pathname, search } = parsePath(leaf.path);
+		const { pathname, search, hash } = parsePath(leaf.path);
 		const match = this.#matcher.match(pathname, search, hash);
 		if (match === undefined) {
 			throw new Error(`stacker: pinned route '${name}' (path '${leaf.path}') did not match`);
@@ -511,10 +511,10 @@ export class Router<R extends RouteRegistry<unknown>> {
 
 	#notFoundMatch(): RouteMatch {
 		return {
-			chain: [{ node: this.#notFound.node, params: {} }],
-			leaf: this.#notFound.leaf,
 			name: this.#notFound.leaf.name,
 			params: {},
+			leaf: this.#notFound.leaf,
+			chain: [{ node: this.#notFound.node, params: {} }],
 		};
 	}
 }
@@ -523,22 +523,22 @@ export class Router<R extends RouteRegistry<unknown>> {
 const toTarget = (match: RouteMatch): LooseTarget => ({ ...match.params, name: match.name });
 
 const makeNotFound = (component: ComponentType): { leaf: ResolvedLeaf; node: ResolvedNode } => {
-	const leafNode: RouteLeaf = { kind: 'route', component, params: {}, path: '*', query: {}, type: 'page' };
+	const leafNode: RouteLeaf = { kind: 'route', path: '*', params: {}, query: {}, type: 'page', component };
 	const node: ResolvedNode = {
 		kind: 'route',
 		id: ' notFound',
 		key: ' notFound',
-		node: leafNode,
-		params: {},
 		path: '*',
+		params: {},
+		node: leafNode,
 	};
 	const leaf: ResolvedLeaf = {
-		chain: [node],
-		leaf: leafNode,
 		name: ' notFound',
-		params: {},
 		path: '*',
+		params: {},
 		query: {},
+		leaf: leafNode,
+		chain: [node],
 	};
 	return { leaf, node };
 };

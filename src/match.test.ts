@@ -13,34 +13,34 @@ const code = (): Codec<string> => ({
 
 const registry = defineRoutes({
 	app: layout({
+		component: Dummy,
 		children: {
-			Home: route({ component: Dummy, path: '/', type: 'singleton' }),
-			Explore: route({ component: Dummy, path: '/search', when: ({ rawSearch }) => !rawSearch.has('q') }),
+			Home: route({ path: '/', type: 'singleton', component: Dummy }),
+			Explore: route({ path: '/search', when: ({ rawSearch }) => !rawSearch.has('q'), component: Dummy }),
 			Search: route({
-				component: Dummy,
 				path: '/search',
 				query: { q: string(), type: optional(enumOf(['feed', 'user'])) },
-			}),
-			Profile: route({ component: Dummy, params: { actor: string() }, path: '/profile/:actor' }),
-			Post: route({
 				component: Dummy,
-				params: { actor: string(), code: code() },
+			}),
+			Profile: route({ path: '/profile/:actor', params: { actor: string() }, component: Dummy }),
+			Post: route({
 				path: '/profile/:actor/post/:code',
+				params: { actor: string(), code: code() },
+				component: Dummy,
 			}),
 			Feed: route({
-				component: Dummy,
 				path: '/feed',
 				query: { sort: withDefault(enumOf(['hot', 'new']), 'hot') },
-			}),
-			messages: layout({
-				children: {
-					Convo: route({ component: Dummy, params: { convo: string() }, path: '/messages/:convo' }),
-					Messages: route({ component: Dummy, path: '/messages', type: 'singleton' }),
-				},
 				component: Dummy,
 			}),
+			messages: layout({
+				component: Dummy,
+				children: {
+					Convo: route({ path: '/messages/:convo', params: { convo: string() }, component: Dummy }),
+					Messages: route({ path: '/messages', type: 'singleton', component: Dummy }),
+				},
+			}),
 		},
-		component: Dummy,
 	}),
 });
 
@@ -78,9 +78,9 @@ describe('Matcher', () => {
 		it('skips the whole candidate when an ancestor layout codec rejects the value', () => {
 			const strict = defineRoutes({
 				group: layout({
-					children: { Item: route({ component: Dummy, params: { actor: string() }, path: '/g/:actor' }) },
-					component: Dummy,
 					params: { actor: enumOf(['alice']) },
+					component: Dummy,
+					children: { Item: route({ path: '/g/:actor', params: { actor: string() }, component: Dummy }) },
 				}),
 			});
 			const strictMatcher = new Matcher(strict);
@@ -113,14 +113,14 @@ describe('Matcher', () => {
 
 	describe('splats', () => {
 		const splatRoutes = defineRoutes({
-			Docs: route({ component: Dummy, params: { rest: string() }, path: '/docs/*rest' }),
-			Files: route({ component: Dummy, params: { rest: nonEmpty() }, path: '/files/*rest' }),
+			Docs: route({ path: '/docs/*rest', params: { rest: string() }, component: Dummy }),
+			Files: route({ path: '/files/*rest', params: { rest: nonEmpty() }, component: Dummy }),
 			Scoped: route({
-				component: Dummy,
-				params: { actor: string(), rest: string() },
 				path: '/u/:actor/tree/*rest',
+				params: { actor: string(), rest: string() },
+				component: Dummy,
 			}),
-			Catchall: route({ component: Dummy, params: { rest: string() }, path: '/*rest' }),
+			Catchall: route({ path: '/*rest', params: { rest: string() }, component: Dummy }),
 		});
 		const splatMatcher = new Matcher(splatRoutes);
 
@@ -159,8 +159,8 @@ describe('Matcher', () => {
 
 		it('is shadowed by an earlier sibling, since matching follows declaration order', () => {
 			const ordered = defineRoutes({
-				Wild: route({ component: Dummy, params: { rest: string() }, path: '/docs/*rest' }),
-				Settings: route({ component: Dummy, path: '/docs/settings' }),
+				Wild: route({ path: '/docs/*rest', params: { rest: string() }, component: Dummy }),
+				Settings: route({ path: '/docs/settings', component: Dummy }),
 			});
 
 			expect(new Matcher(ordered).match('/docs/settings')?.name).toBe('Wild');
@@ -178,17 +178,17 @@ describe('Matcher', () => {
 describe('resolveMeta', () => {
 	const metaRoutes = defineRoutes({
 		app: layout({
-			children: {
-				Convo: route({
-					component: Dummy,
-					meta: { navGroup: 'convo' },
-					params: { id: string() },
-					path: '/messages/:id',
-				}),
-				Messages: route({ component: Dummy, path: '/messages' }),
-			},
 			component: Dummy,
 			meta: { navGroup: 'app' },
+			children: {
+				Convo: route({
+					path: '/messages/:id',
+					params: { id: string() },
+					component: Dummy,
+					meta: { navGroup: 'convo' },
+				}),
+				Messages: route({ path: '/messages', component: Dummy }),
+			},
 		}),
 	});
 	const metaMatcher = new Matcher(metaRoutes);
@@ -203,7 +203,7 @@ describe('resolveMeta', () => {
 
 	it('is undefined when no node on the chain sets it', () => {
 		const bare = defineRoutes({
-			app: layout({ children: { Bare: route({ component: Dummy, path: '/bare' }) }, component: Dummy }),
+			app: layout({ component: Dummy, children: { Bare: route({ path: '/bare', component: Dummy }) } }),
 		});
 
 		expect(resolveMeta(matched(new Matcher(bare), '/bare'), 'navGroup')).toBeUndefined();

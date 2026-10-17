@@ -10,25 +10,25 @@ export interface PoolEntry {
 
 /** an instance node within the layout tree structure. */
 export interface InstanceNode {
-	readonly children: InstanceNode[];
 	readonly instanceKey: string;
 	readonly node: ResolvedNode;
 	readonly params: Readonly<Record<string, unknown>>;
+	readonly children: InstanceNode[];
 }
 
 /** the computed rendering view configuration. */
 export interface View {
-	/** instance keys along the active chain from root to leaf. */
-	readonly activePath: readonly string[];
 	/** the top-level pool (instances at the root outlet). */
 	readonly roots: readonly InstanceNode[];
+	/** instance keys along the active chain from root to leaf. */
+	readonly activePath: readonly string[];
 }
 
 interface PlacedNode {
-	children: PlacedNode[];
 	instanceKey: string;
 	node: ResolvedNode;
 	params: Readonly<Record<string, unknown>>;
+	children: PlacedNode[];
 }
 
 /**
@@ -51,7 +51,7 @@ export const computeView = (
 			const key = instanceKey(matched, entry.key);
 			let inst = byKey.get(key);
 			if (inst === undefined) {
-				inst = { children: [], instanceKey: key, node: matched.node, params: matched.params };
+				inst = { instanceKey: key, node: matched.node, params: matched.params, children: [] };
 				byKey.set(key, inst);
 				pool.push(inst);
 			} else if (active) {
@@ -74,5 +74,5 @@ export const computeView = (
 	}
 	const activePath = active.match.chain.map((matched) => instanceKey(matched, active.key));
 
-	return { activePath, roots };
+	return { roots, activePath };
 };

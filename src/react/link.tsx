@@ -4,10 +4,10 @@ import { useRouter } from './hooks.ts';
 
 /** properties for the link component. */
 export interface LinkProps extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
-	/** replace the current history entry. */
-	readonly replace?: boolean;
 	/** target relative URL path. */
 	readonly to: string;
+	/** replace the current history entry. */
+	readonly replace?: boolean;
 }
 
 const isModifiedClick = (event: MouseEvent): boolean =>
@@ -30,7 +30,7 @@ const isRoutable = (to: string): boolean => {
  * @param props link properties
  * @returns rendered anchor element
  */
-export const Link = ({ children, onClick, replace, to, ...rest }: LinkProps): ReactElement => {
+export const Link = ({ to, replace, children, onClick, ...rest }: LinkProps): ReactElement => {
 	const router = useRouter();
 	return (
 		<a
@@ -47,7 +47,7 @@ export const Link = ({ children, onClick, replace, to, ...rest }: LinkProps): Re
 					return;
 				}
 				event.preventDefault();
-				router.navigate({ replace, to });
+				router.navigate({ to, replace });
 			}}
 			{...rest}
 		>

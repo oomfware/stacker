@@ -9,26 +9,26 @@ import { Dummy } from './test-support.ts';
 
 const registry = defineRoutes({
 	app: layout({
+		component: Dummy,
 		children: {
 			Feed: route({
-				component: Dummy,
 				path: '/feed',
 				query: { sort: withDefault(enumOf(['hot', 'new']), 'hot') },
+				component: Dummy,
 			}),
-			Home: route({ component: Dummy, path: '/', type: 'singleton' }),
+			Home: route({ path: '/', type: 'singleton', component: Dummy }),
 			Post: route({
-				component: Dummy,
-				params: { actor: string(), n: integer() },
 				path: '/profile/:actor/post/:n',
-			}),
-			Profile: route({ component: Dummy, params: { actor: string() }, path: '/profile/:actor' }),
-			Search: route({
+				params: { actor: string(), n: integer() },
 				component: Dummy,
+			}),
+			Profile: route({ path: '/profile/:actor', params: { actor: string() }, component: Dummy }),
+			Search: route({
 				path: '/search',
 				query: { q: string(), type: optional(enumOf(['feed', 'user'])) },
+				component: Dummy,
 			}),
 		},
-		component: Dummy,
 	}),
 });
 
@@ -140,11 +140,11 @@ describe('Builder', () => {
 
 	describe('splats', () => {
 		const splatRoutes = defineRoutes({
-			Docs: route({ component: Dummy, params: { rest: string() }, path: '/docs/*rest' }),
+			Docs: route({ path: '/docs/*rest', params: { rest: string() }, component: Dummy }),
 			Scoped: route({
-				component: Dummy,
-				params: { actor: string(), rest: string() },
 				path: '/u/:actor/tree/*rest',
+				params: { actor: string(), rest: string() },
+				component: Dummy,
 			}),
 		});
 		const splatBuilder = new Builder(splatRoutes);

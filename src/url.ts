@@ -1,7 +1,7 @@
 export interface PathParts {
-	hash: string;
 	pathname: string;
 	search: string;
+	hash: string;
 }
 
 export const parsePath = (to: string): PathParts => {
@@ -21,12 +21,12 @@ export const parsePath = (to: string): PathParts => {
 		pathname = pathname.slice(0, searchIndex);
 	}
 
-	return { hash, pathname, search };
+	return { pathname, search, hash };
 };
 
 export const resolvePath = (to: string, base: PathParts): PathParts => {
 	const resolved = new URL(to, `http://_${createPath(base)}`);
-	return { hash: resolved.hash, pathname: resolved.pathname, search: resolved.search };
+	return { pathname: resolved.pathname, search: resolved.search, hash: resolved.hash };
 };
 
 // a path segment can hold pchar characters as-is (RFC 3986): unreserved, sub-delims, ':' and '@'.
@@ -58,7 +58,7 @@ export const encodeRemainder = (value: string): string => {
 		.join('/');
 };
 
-export const createPath = ({ hash, pathname, search }: PathParts): string => {
+export const createPath = ({ pathname, search, hash }: PathParts): string => {
 	let out = pathname || '/';
 	if (search && search !== '?') {
 		out += search.startsWith('?') ? search : `?${search}`;

@@ -5,24 +5,24 @@ import { createPath, decodeRemainder, encodeRemainder, parsePath, resolvePath } 
 describe('parsePath', () => {
 	it('splits pathname, search, and hash', () => {
 		expect(parsePath('/profile/alice?tab=feeds#top')).toEqual({
-			hash: '#top',
 			pathname: '/profile/alice',
 			search: '?tab=feeds',
+			hash: '#top',
 		});
 	});
 
 	it('handles a bare path', () => {
-		expect(parsePath('/')).toEqual({ hash: '', pathname: '/', search: '' });
+		expect(parsePath('/')).toEqual({ pathname: '/', search: '', hash: '' });
 	});
 
 	it('handles a hash with no search', () => {
-		expect(parsePath('/x#y')).toEqual({ hash: '#y', pathname: '/x', search: '' });
+		expect(parsePath('/x#y')).toEqual({ pathname: '/x', search: '', hash: '#y' });
 	});
 });
 
 describe('createPath', () => {
 	it('joins parts back into a relative URL', () => {
-		expect(createPath({ hash: '#top', pathname: '/profile/alice', search: '?tab=feeds' })).toBe(
+		expect(createPath({ pathname: '/profile/alice', search: '?tab=feeds', hash: '#top' })).toBe(
 			'/profile/alice?tab=feeds#top',
 		);
 	});
@@ -35,26 +35,26 @@ describe('createPath', () => {
 });
 
 describe('resolvePath', () => {
-	const base = { hash: '', pathname: '/profile/alice', search: '?tab=feeds' };
+	const base = { pathname: '/profile/alice', search: '?tab=feeds', hash: '' };
 
 	it('keeps the base pathname for a search-only destination', () => {
 		expect(resolvePath('?tab=likes', base)).toEqual({
-			hash: '',
 			pathname: '/profile/alice',
 			search: '?tab=likes',
+			hash: '',
 		});
 	});
 
 	it('keeps the base pathname and search for a hash-only destination', () => {
 		expect(resolvePath('#top', base)).toEqual({
-			hash: '#top',
 			pathname: '/profile/alice',
 			search: '?tab=feeds',
+			hash: '#top',
 		});
 	});
 
 	it('replaces everything for an absolute destination', () => {
-		expect(resolvePath('/messages/x', base)).toEqual({ hash: '', pathname: '/messages/x', search: '' });
+		expect(resolvePath('/messages/x', base)).toEqual({ pathname: '/messages/x', search: '', hash: '' });
 	});
 
 	it('resolves a bare relative reference against the base directory', () => {

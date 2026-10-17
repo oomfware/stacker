@@ -204,36 +204,36 @@ const AppShell = () => {
 
 const routes = defineRoutes({
 	app: layout({
+		component: AppShell,
 		children: {
-			Home: route({ component: Home, path: '/', type: 'singleton' }),
+			Home: route({ path: '/', type: 'singleton', component: Home }),
 			Profile: route({
-				component: Profile,
-				params: { actor: string() },
 				path: '/profile/:actor',
+				params: { actor: string() },
 				query: { tab: optional(string()) },
+				component: Profile,
 			}),
-			Settings: route({ component: Settings, path: '/settings' }),
+			Settings: route({ path: '/settings', component: Settings }),
 			messages: layout({
-				children: {
-					Convo: route({ component: Convo, params: { convo: string() }, path: '/messages/:convo' }),
-					Messages: route({ component: Messages, path: '/messages', type: 'singleton' }),
-				},
 				component: MessagesShell,
 				meta: { navGroup: 'messages' },
+				children: {
+					Convo: route({ path: '/messages/:convo', params: { convo: string() }, component: Convo }),
+					Messages: route({ path: '/messages', type: 'singleton', component: Messages }),
+				},
 			}),
 		},
-		component: AppShell,
 	}),
 });
 
 const hooks = createRouterHooks(routes);
 
 const router = new Router({
-	history: new NavigationHistory({ ignore: (url) => url.pathname.endsWith('.html') }),
-	max: 2,
-	notFound: NotFound,
-	pins: ['Home'],
 	routes,
+	history: new NavigationHistory({ ignore: (url) => url.pathname.endsWith('.html') }),
+	notFound: NotFound,
+	max: 2,
+	pins: ['Home'],
 });
 
 export const App = () => <RouterView router={router} />;

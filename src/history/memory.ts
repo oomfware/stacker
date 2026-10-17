@@ -12,14 +12,14 @@ import type {
 	HistoryUpdate,
 } from './types.ts';
 
-const ROOT: PathParts = { hash: '', pathname: '/', search: '' };
+const ROOT: PathParts = { pathname: '/', search: '', hash: '' };
 
 /** options for the memory history constructor. */
 export interface MemoryHistoryOptions {
-	/** initially active entry index. */
-	readonly index?: number;
 	/** initial entry relative URLs. */
 	readonly initialEntries?: readonly string[];
+	/** initially active entry index. */
+	readonly index?: number;
 }
 
 /**
@@ -57,12 +57,12 @@ export class MemoryHistory implements History {
 
 	entries(): readonly HistoryEntry[] {
 		return this.#entries.map((location) => ({
+			key: location.key,
 			id: location.id,
 			index: location.index,
-			key: location.key,
+			url: createPath(location),
 			sameDocument: true,
 			state: location.state,
-			url: createPath(location),
 		}));
 	}
 
@@ -78,20 +78,20 @@ export class MemoryHistory implements History {
 			options.state ?? null,
 		);
 		this.#entries = [...this.#entries.slice(0, this.#index), location];
-		this.#emit({ action: 'push', info: options.info, location, scroll: options.scroll ?? 'auto' });
+		this.#emit({ action: 'push', location, scroll: options.scroll ?? 'auto', info: options.info });
 	}
 
 	replace(to: string, options: HistoryNavigateOptions = {}): void {
 		const current = this.#current();
 		const location = this.#make(to, current, this.#nextId(), current.key, this.#index, options.state ?? null);
 		this.#entries = this.#entries.with(this.#index, location);
-		this.#emit({ action: 'replace', info: options.info, location, scroll: options.scroll ?? 'auto' });
+		this.#emit({ action: 'replace', location, scroll: options.scroll ?? 'auto', info: options.info });
 	}
 
 	updateState(state: unknown): void {
 		const location: HistoryLocation = { ...this.#current(), state: structuredClone(state) };
 		this.#entries = this.#entries.with(this.#index, location);
-		this.#emit({ action: 'update', info: undefined, location, scroll: 'preserve' });
+		this.#emit({ action: 'update', location, scroll: 'preserve', info: undefined });
 	}
 
 	traverseTo(key: string): Promise<void> {
@@ -110,7 +110,7 @@ export class MemoryHistory implements History {
 			return;
 		}
 		this.#index = next;
-		this.#emit({ action: 'traverse', info: undefined, location: this.#current(), scroll: 'auto' });
+		this.#emit({ action: 'traverse', location: this.#current(), scroll: 'auto', info: undefined });
 	}
 
 	back(): void {
@@ -145,10 +145,10 @@ export class MemoryHistory implements History {
 		index: number,
 		state: unknown,
 	): HistoryLocation {
-		const { hash, pathname, search } = resolvePath(to, base);
+		const { pathname, search, hash } = resolvePath(to, base);
 		// the browser stores a structured clone, so a caller that keeps mutating the object it passed does not
 		// reach back into the ledger. cloning here also rejects the same values a real entry would.
-		return { hash, id, index, key, pathname, search, state: structuredClone(state) };
+		return { key, id, index, pathname, search, hash, state: structuredClone(state) };
 	}
 
 	#current(): HistoryLocation {

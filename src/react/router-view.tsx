@@ -63,18 +63,18 @@ export const Pool = ({ nodes }: { readonly nodes: readonly InstanceNode[] }): Re
 	return (
 		<>
 			{nodes.map((node) => (
-				<Branch key={node.instanceKey} focused={activePath.includes(node.instanceKey)} node={node} />
+				<Branch key={node.instanceKey} node={node} focused={activePath.includes(node.instanceKey)} />
 			))}
 		</>
 	);
 };
 
 const Branch = ({
-	focused,
 	node,
+	focused,
 }: {
-	readonly focused: boolean;
 	readonly node: InstanceNode;
+	readonly focused: boolean;
 }): ReactElement => {
 	const resolved = node.node;
 	const Component = resolved.node.component;
@@ -87,7 +87,7 @@ const Branch = ({
 			data-stacker-node={resolved.id}
 			style={{ display: focused ? 'contents' : 'none' }}
 		>
-			<CurrentNodeContext value={{ focused, node }}>
+			<CurrentNodeContext value={{ node, focused }}>
 				<Suspense fallback={fallback ?? null}>
 					<Component />
 				</Suspense>

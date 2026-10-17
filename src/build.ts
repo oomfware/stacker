@@ -81,6 +81,6 @@ export class Builder<R extends RouteRegistry<unknown> = RouteRegistry<unknown>> 
 		}
 		const query = search.toString();
 
-		return createPath({ hash: '', pathname, search: query ? `?${query}` : '' });
+		return createPath({ pathname, search: query ? `?${query}` : '', hash: '' });
 	}
 }

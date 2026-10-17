@@ -18,7 +18,7 @@ describe('MemoryHistory', () => {
 	});
 
 	it('accepts custom initial entries and index', () => {
-		const history = new MemoryHistory({ index: 1, initialEntries: ['/a', '/b', '/c'] });
+		const history = new MemoryHistory({ initialEntries: ['/a', '/b', '/c'], index: 1 });
 		expect(history.location.pathname).toBe('/b');
 		expect(history.location.index).toBe(1);
 	});

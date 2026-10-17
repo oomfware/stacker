@@ -9,22 +9,22 @@ import { Dummy, matched } from './test-support.ts';
 
 const registry = defineRoutes({
 	app: layout({
+		component: Dummy,
 		children: {
-			Home: route({ component: Dummy, path: '/', type: 'singleton' }),
+			Home: route({ path: '/', type: 'singleton', component: Dummy }),
 			Pair: route({
-				component: Dummy,
-				params: { a: string(), b: string() },
 				path: '/pair/:a/:b',
+				params: { a: string(), b: string() },
 				type: 'singleton',
-			}),
-			Profile: route({ component: Dummy, params: { actor: string() }, path: '/profile/:actor' }),
-			Search: route({
 				component: Dummy,
+			}),
+			Profile: route({ path: '/profile/:actor', params: { actor: string() }, component: Dummy }),
+			Search: route({
 				path: '/search',
 				query: { q: string(), type: optional(enumOf(['a', 'b'])) },
+				component: Dummy,
 			}),
 		},
-		component: Dummy,
 	}),
 });
 

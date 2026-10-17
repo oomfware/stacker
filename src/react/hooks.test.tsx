@@ -55,15 +55,6 @@ const Profile = () => {
 
 const routes = defineRoutes({
 	app: layout({
-		children: {
-			Home: route({ component: Home, path: '/', type: 'singleton' }),
-			Profile: route({
-				component: Profile,
-				params: { actor: string() },
-				path: '/profile/:actor',
-				query: { tab: optional(string()) },
-			}),
-		},
 		component: () => (
 			<>
 				<ActiveProbe />
@@ -71,12 +62,21 @@ const routes = defineRoutes({
 				<Outlet />
 			</>
 		),
+		children: {
+			Home: route({ path: '/', type: 'singleton', component: Home }),
+			Profile: route({
+				path: '/profile/:actor',
+				params: { actor: string() },
+				query: { tab: optional(string()) },
+				component: Profile,
+			}),
+		},
 	}),
 });
 
 const hooks = createRouterHooks(routes);
 
-const make = () => new Router({ history: new MemoryHistory({ initialEntries: ['/'] }), routes });
+const make = () => new Router({ routes, history: new MemoryHistory({ initialEntries: ['/'] }) });
 
 describe('typed hooks', () => {
 	it('the typed router navigates by route name with typed params', () => {
@@ -152,11 +152,11 @@ describe('typed hooks', () => {
 			return null;
 		};
 		const otherRoutes = defineRoutes({
-			Home: route({ component: Foreign, path: '/', type: 'singleton' }),
+			Home: route({ path: '/', type: 'singleton', component: Foreign }),
 		});
 		const router = new Router({
-			history: new MemoryHistory({ initialEntries: ['/'] }),
 			routes: otherRoutes,
+			history: new MemoryHistory({ initialEntries: ['/'] }),
 		});
 
 		expect(() => render(<RouterView router={router} />)).toThrow(/different route registry/);
@@ -165,11 +165,11 @@ describe('typed hooks', () => {
 	describe('useParams runtime guard', () => {
 		const misassertedRoutes = defineRoutes({
 			app: layout({
-				children: {
-					Home: route({ component: () => <Misasserted />, path: '/', type: 'singleton' }),
-					Profile: route({ component: () => null, params: { actor: string() }, path: '/profile/:actor' }),
-				},
 				component: () => <Outlet />,
+				children: {
+					Home: route({ path: '/', type: 'singleton', component: () => <Misasserted /> }),
+					Profile: route({ path: '/profile/:actor', params: { actor: string() }, component: () => null }),
+				},
 			}),
 		});
 		const misassertedHooks = createRouterHooks(misassertedRoutes);
@@ -180,8 +180,8 @@ describe('typed hooks', () => {
 
 		it('throws when the asserted route name does not match the rendered route', () => {
 			const router = new Router({
-				history: new MemoryHistory({ initialEntries: ['/'] }),
 				routes: misassertedRoutes,
+				history: new MemoryHistory({ initialEntries: ['/'] }),
 			});
 
 			expect(() => render(<RouterView router={router} />)).toThrow(
@@ -191,11 +191,11 @@ describe('typed hooks', () => {
 
 		const collidingRoutes = defineRoutes({
 			Profile: layout({
-				children: {
-					Profile: route({ component: () => null, params: { actor: string() }, path: '/profile/:actor' }),
-				},
-				component: () => <LayoutProbe />,
 				params: { actor: string() },
+				component: () => <LayoutProbe />,
+				children: {
+					Profile: route({ path: '/profile/:actor', params: { actor: string() }, component: () => null }),
+				},
 			}),
 		});
 		const collidingHooks = createRouterHooks(collidingRoutes);
@@ -206,8 +206,8 @@ describe('typed hooks', () => {
 
 		it('throws when a layout key collides with the asserted leaf route name', () => {
 			const router = new Router({
-				history: new MemoryHistory({ initialEntries: ['/profile/alice'] }),
 				routes: collidingRoutes,
+				history: new MemoryHistory({ initialEntries: ['/profile/alice'] }),
 			});
 
 			expect(() => render(<RouterView router={router} />)).toThrow(
@@ -238,18 +238,18 @@ const FocusProbe = () => {
 describe('useFocusEffect', () => {
 	const focusRoutes = defineRoutes({
 		shell: layout({
-			children: {
-				Away: route({ component: () => <p>away</p>, path: '/away' }),
-				Focus: route({ component: FocusProbe, path: '/', type: 'singleton' }),
-			},
 			component: () => <Outlet />,
+			children: {
+				Away: route({ path: '/away', component: () => <p>away</p> }),
+				Focus: route({ path: '/', type: 'singleton', component: FocusProbe }),
+			},
 		}),
 	});
 
 	const makeFocus = () => {
 		focus.mockClear();
 		blur.mockClear();
-		return new Router({ history: new MemoryHistory({ initialEntries: ['/'] }), routes: focusRoutes });
+		return new Router({ routes: focusRoutes, history: new MemoryHistory({ initialEntries: ['/'] }) });
 	};
 
 	it('re-runs while visible when the effect identity changes', () => {
@@ -290,18 +290,18 @@ const Titled = ({ title }: { readonly title: string }) => {
 describe('a title, built out of useFocusEffect', () => {
 	const titledRoutes = defineRoutes({
 		shell: layout({
-			children: {
-				Away: route({ component: () => <Titled title="away" />, path: '/away' }),
-				Titled: route({ component: () => <Titled title="titled" />, path: '/', type: 'singleton' }),
-			},
 			component: () => <Outlet />,
+			children: {
+				Away: route({ path: '/away', component: () => <Titled title="away" /> }),
+				Titled: route({ path: '/', type: 'singleton', component: () => <Titled title="titled" /> }),
+			},
 		}),
 	});
 
 	it('lets the visible branch title the document, and never a warm one', () => {
 		const router = new Router({
-			history: new MemoryHistory({ initialEntries: ['/'] }),
 			routes: titledRoutes,
+			history: new MemoryHistory({ initialEntries: ['/'] }),
 		});
 		render(<RouterView router={router} />);
 		expect(document.title).toBe('titled');

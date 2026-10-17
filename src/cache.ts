@@ -1,6 +1,6 @@
 export interface CacheEntryRef {
-	readonly index: number;
 	readonly key: string;
+	readonly index: number;
 }
 
 export interface CachePolicy {

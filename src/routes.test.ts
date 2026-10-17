@@ -6,40 +6,40 @@ import { Dummy } from './test-support.ts';
 
 const routes = defineRoutes({
 	app: layout({
+		component: Dummy,
 		children: {
-			Home: route({ component: Dummy, path: '/', type: 'singleton' }),
+			Home: route({ path: '/', type: 'singleton', component: Dummy }),
 			Profile: route({
-				component: Dummy,
-				params: { didOrHandle: string() },
 				path: '/profile/:didOrHandle',
-			}),
-			Explore: route({ component: Dummy, path: '/search', when: ({ rawSearch }) => !rawSearch.has('q') }),
-			Search: route({
+				params: { didOrHandle: string() },
 				component: Dummy,
+			}),
+			Explore: route({ path: '/search', when: ({ rawSearch }) => !rawSearch.has('q'), component: Dummy }),
+			Search: route({
 				path: '/search',
 				query: { q: string(), type: optional(enumOf(['feed', 'profile', 'user'])) },
+				component: Dummy,
 			}),
 			PostThread: route({
-				component: Dummy,
-				params: { didOrHandle: string(), rkey: string() },
 				path: '/profile/:didOrHandle/post/:rkey',
+				params: { didOrHandle: string(), rkey: string() },
+				component: Dummy,
 			}),
 			messages: layout({
-				children: {
-					Messages: route({ component: Dummy, path: '/messages', type: 'singleton' }),
-					MessagesConversation: route({
-						component: Dummy,
-						params: { convo: string() },
-						path: '/messages/:convo',
-					}),
-				},
 				component: Dummy,
 				meta: { navGroup: 'messages' },
+				children: {
+					Messages: route({ path: '/messages', type: 'singleton', component: Dummy }),
+					MessagesConversation: route({
+						path: '/messages/:convo',
+						params: { convo: string() },
+						component: Dummy,
+					}),
+				},
 			}),
 		},
-		component: Dummy,
 	}),
-	StarterPackWizard: route({ component: Dummy, path: '/starter-pack/create' }),
+	StarterPackWizard: route({ path: '/starter-pack/create', component: Dummy }),
 });
 
 describe('defineRoutes', () => {
@@ -82,12 +82,12 @@ describe('defineRoutes', () => {
 
 	describe('validation', () => {
 		it('rejects a path param without a codec', () => {
-			expect(() => defineRoutes({ X: route({ component: Dummy, path: '/x/:id' }) })).toThrow(/path params/);
+			expect(() => defineRoutes({ X: route({ path: '/x/:id', component: Dummy }) })).toThrow(/path params/);
 		});
 
 		it('rejects a declared param missing from the path', () => {
 			expect(() =>
-				defineRoutes({ X: route({ component: Dummy, params: { id: string() }, path: '/x' }) }),
+				defineRoutes({ X: route({ path: '/x', params: { id: string() }, component: Dummy }) }),
 			).toThrow(/path params/);
 		});
 
@@ -95,9 +95,9 @@ describe('defineRoutes', () => {
 			expect(() =>
 				defineRoutes({
 					profile: layout({
-						children: { Leaf: route({ component: Dummy, params: { other: string() }, path: '/x/:other' }) },
-						component: Dummy,
 						params: { actor: string() },
+						component: Dummy,
+						children: { Leaf: route({ path: '/x/:other', params: { other: string() }, component: Dummy }) },
 					}),
 				}),
 			).toThrow(/not present in route/);
@@ -106,7 +106,7 @@ describe('defineRoutes', () => {
 		it('rejects a name shared between a path param and a query param', () => {
 			expect(() =>
 				defineRoutes({
-					X: route({ component: Dummy, params: { id: string() }, path: '/x/:id', query: { id: string() } }),
+					X: route({ path: '/x/:id', params: { id: string() }, query: { id: string() }, component: Dummy }),
 				}),
 			).toThrow(/both a path and query/);
 		});
@@ -114,55 +114,55 @@ describe('defineRoutes', () => {
 		it('rejects a param called `name`, which a route target has no room for', () => {
 			expect(() =>
 				defineRoutes({
-					X: route({ component: Dummy, params: { name: string() }, path: '/x/:name' }),
+					X: route({ path: '/x/:name', params: { name: string() }, component: Dummy }),
 				}),
 			).toThrow(/must not declare a param named 'name'/);
 			expect(() =>
-				defineRoutes({ X: route({ component: Dummy, path: '/x', query: { name: string() } }) }),
+				defineRoutes({ X: route({ path: '/x', query: { name: string() }, component: Dummy }) }),
 			).toThrow(/must not declare a param named 'name'/);
 		});
 
 		it('rejects a duplicate route name across the tree', () => {
 			expect(() =>
 				defineRoutes({
-					a: layout({ children: { Dup: route({ component: Dummy, path: '/a' }) }, component: Dummy }),
-					b: layout({ children: { Dup: route({ component: Dummy, path: '/b' }) }, component: Dummy }),
+					a: layout({ component: Dummy, children: { Dup: route({ path: '/a', component: Dummy }) } }),
+					b: layout({ component: Dummy, children: { Dup: route({ path: '/b', component: Dummy }) } }),
 				}),
 			).toThrow(/duplicate route name/);
 		});
 
 		it('rejects an optional() or withDefault() path param', () => {
 			expect(() =>
-				defineRoutes({ X: route({ component: Dummy, params: { id: optional(string()) }, path: '/x/:id' }) }),
+				defineRoutes({ X: route({ path: '/x/:id', params: { id: optional(string()) }, component: Dummy }) }),
 			).toThrow(/must not be optional/);
 			expect(() =>
 				defineRoutes({
-					X: route({ component: Dummy, params: { id: withDefault(string(), 'a') }, path: '/x/:id' }),
+					X: route({ path: '/x/:id', params: { id: withDefault(string(), 'a') }, component: Dummy }),
 				}),
 			).toThrow(/must not be optional/);
 		});
 
 		it('accepts a named trailing splat, treating it as a required path param', () => {
 			expect(() =>
-				defineRoutes({ X: route({ component: Dummy, params: { rest: string() }, path: '/docs/*rest' }) }),
+				defineRoutes({ X: route({ path: '/docs/*rest', params: { rest: string() }, component: Dummy }) }),
 			).not.toThrow();
-			expect(() => defineRoutes({ X: route({ component: Dummy, path: '/docs/*rest' }) })).toThrow(
+			expect(() => defineRoutes({ X: route({ path: '/docs/*rest', component: Dummy }) })).toThrow(
 				/path params/,
 			);
 		});
 
 		it('rejects a `*` that is not a named trailing splat, which would compile to a literal asterisk', () => {
 			for (const path of ['/docs/*', '/docs/*rest/edit', '/a*b']) {
-				expect(() => defineRoutes({ X: route({ component: Dummy, path }) })).toThrow(/trailing splat/);
+				expect(() => defineRoutes({ X: route({ path, component: Dummy }) })).toThrow(/trailing splat/);
 			}
 		});
 
 		it('rejects a route path that is not absolute, which could never match a pathname', () => {
-			expect(() => defineRoutes({ X: route({ component: Dummy, path: 'x' }) })).toThrow(/must start with/);
+			expect(() => defineRoutes({ X: route({ path: 'x', component: Dummy }) })).toThrow(/must start with/);
 		});
 
 		it('rejects a route key containing a dot, which would collide with nested node ids', () => {
-			expect(() => defineRoutes({ 'a.b': route({ component: Dummy, path: '/x' }) })).toThrow(
+			expect(() => defineRoutes({ 'a.b': route({ path: '/x', component: Dummy }) })).toThrow(
 				/must not contain/,
 			);
 		});

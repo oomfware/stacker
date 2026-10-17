@@ -38,17 +38,17 @@ const routes = defineRoutes({
 	app: layout({
 		component: AppShell,
 		children: {
-			Home: route({ component: Home, path: '/' }),
+			Home: route({ path: '/', component: Home }),
 			Profile: route({
-				component: Profile,
-				params: { actor: string() },
 				path: '/profile/:actor',
+				params: { actor: string() },
+				component: Profile,
 			}),
 		},
 	}),
 });
 
-const router = new Router({ history: new NavigationHistory(), routes });
+const router = new Router({ routes, history: new NavigationHistory() });
 
 export const App = () => <RouterView router={router} />;
 ```
@@ -65,14 +65,14 @@ const routes = defineRoutes({
 	app: layout({
 		component: AppShell,
 		children: {
-			Home: route({ component: Home, path: '/' }),
+			Home: route({ path: '/', component: Home }),
 			Profile: route({
-				component: Profile,
+				path: '/profile/:actor',
 				params: { actor: string() },
 				query: { tab: optional(string()) },
-				path: '/profile/:actor',
+				component: Profile,
 			}),
-			Settings: route({ component: Settings, path: '/settings' }),
+			Settings: route({ path: '/settings', component: Settings }),
 		},
 	}),
 });
@@ -85,10 +85,10 @@ configure `type` to control page instance lifetimes:
 
 ```ts
 // page (default): new instance and state per history entry
-route({ component: Profile, path: '/profile/:actor', type: 'page' });
+route({ path: '/profile/:actor', type: 'page', component: Profile });
 
 // singleton: one instance per distinct parameter set
-route({ component: Home, path: '/', type: 'singleton' });
+route({ path: '/', type: 'singleton', component: Home });
 ```
 
 ### parameters
@@ -99,7 +99,6 @@ declare path and query parameters using codecs. types are inferred automatically
 import { boolean, enumOf, integer, optional, route, string, withDefault } from '@oomfware/stacker';
 
 route({
-	component: SearchPage,
 	path: '/search/:tag',
 	params: { tag: string() },
 	query: {
@@ -107,6 +106,7 @@ route({
 		sort: withDefault(enumOf(['new', 'top']), 'new'),
 		unread: optional(boolean()),
 	},
+	component: SearchPage,
 });
 ```
 
@@ -117,7 +117,7 @@ end a path with `*name` to capture the rest of the URL, separators included. a s
 its bare parent path, where the remainder is empty:
 
 ```ts
-route({ component: Docs, params: { rest: string() }, path: '/docs/*rest' });
+route({ path: '/docs/*rest', params: { rest: string() }, component: Docs });
 
 // /docs/guide/intro -> { rest: 'guide/intro' }
 // /docs             -> { rest: '' }
@@ -231,7 +231,7 @@ generate type-safe hooks bound to your route configuration using `createRouterHo
 ```tsx
 import { createRouterHooks } from '@oomfware/stacker';
 
-const { useParams, useRouter } = createRouterHooks(routes);
+const { useRouter, useParams } = createRouterHooks(routes);
 
 const Profile = () => {
 	const [{ actor }, replace] = useParams('Profile');
@@ -373,9 +373,9 @@ parameters:
 
 ```ts
 route({
-	component: Beta,
 	path: '/feed',
 	when: ({ rawSearch }) => rawSearch.has('beta'),
+	component: Beta,
 });
 ```
 
@@ -387,7 +387,7 @@ use `MemoryHistory` to test routing behavior in environments without a DOM:
 import { MemoryHistory } from '@oomfware/stacker/testing';
 
 const router = new Router({
-	history: new MemoryHistory({ initialEntries: ['/', '/profile/alice'] }),
 	routes,
+	history: new MemoryHistory({ initialEntries: ['/', '/profile/alice'] }),
 });
 ```

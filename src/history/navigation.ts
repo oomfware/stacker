@@ -11,6 +11,8 @@ import type {
 
 /** options for navigation-api history. */
 export interface NavigationHistoryOptions {
+	/** window instance to bind to; defaults to global window. */
+	readonly window?: Window;
 	/**
 	 * same-origin destinations the server owns, which the browser should load as a real page rather than the
 	 * router rendering in-app — an OAuth entry point, a server-rendered admin area, a static file. without this
@@ -30,16 +32,14 @@ export interface NavigationHistoryOptions {
 	 * @param error failure reason
 	 */
 	readonly onError?: (error: unknown) => void;
-	/** window instance to bind to; defaults to global window. */
-	readonly window?: Window;
 }
 
 const ENVELOPE = Symbol('stacker.historyInfo');
 
 interface Envelope {
 	readonly [ENVELOPE]: true;
-	readonly info: unknown;
 	readonly scroll: HistoryScrollBehavior;
+	readonly info: unknown;
 }
 
 const isEnvelope = (value: unknown): value is Envelope =>
@@ -116,12 +116,12 @@ export class NavigationHistory implements History {
 
 	entries(): readonly HistoryEntry[] {
 		return this.#nav.entries().map((entry) => ({
+			key: entry.key,
 			id: entry.id,
 			index: entry.index,
-			key: entry.key,
+			url: toRelative(entry.url),
 			sameDocument: entry.sameDocument,
 			state: entry.getState(),
-			url: toRelative(entry.url),
 		}));
 	}
 
@@ -207,11 +207,11 @@ export class NavigationHistory implements History {
 		const url = new URL(to, this.#win.location.href).href;
 		const envelope: Envelope = {
 			[ENVELOPE]: true,
-			info: options.info,
 			scroll: options.scroll ?? 'auto',
+			info: options.info,
 		};
 		this.#report(
-			this.#track(this.#nav.navigate(url, { history, info: envelope, state: options.state ?? null })),
+			this.#track(this.#nav.navigate(url, { state: options.state ?? null, info: envelope, history })),
 		);
 	}
 
@@ -220,14 +220,14 @@ export class NavigationHistory implements History {
 		if (entry === null) {
 			throw new Error('stacker: the navigation API has no current entry (an opaque origin?)');
 		}
-		const { hash, pathname, search } = new URL(entry.url ?? this.#win.location.href);
+		const { pathname, search, hash } = new URL(entry.url ?? this.#win.location.href);
 		return {
-			hash,
+			key: entry.key,
 			id: entry.id,
 			index: entry.index,
-			key: entry.key,
 			pathname,
 			search,
+			hash,
 			state: entry.getState(),
 		};
 	}
@@ -245,9 +245,9 @@ export class NavigationHistory implements History {
 		this.#report(
 			this.#notify({
 				action: 'update',
-				info: undefined,
 				location: this.#location,
 				scroll: 'preserve',
+				info: undefined,
 			}),
 		);
 	};
@@ -257,7 +257,7 @@ export class NavigationHistory implements History {
 		const focused = doc.activeElement;
 
 		this.#location = this.#read();
-		await this.#notify({ action: 'traverse', info: undefined, location: this.#location, scroll: 'auto' });
+		await this.#notify({ action: 'traverse', location: this.#location, scroll: 'auto', info: undefined });
 
 		// preserve focus set during rendering.
 		if (doc.activeElement !== focused) {
@@ -304,7 +304,7 @@ export class NavigationHistory implements History {
 			scroll: 'manual',
 			handler: async () => {
 				this.#location = this.#read();
-				await this.#notify({ action, info, location: this.#location, scroll });
+				await this.#notify({ action, location: this.#location, scroll, info });
 			},
 		});
 	};
@@ -319,6 +319,6 @@ const toRelative = (url: string | null): string | null => {
 	if (url === null) {
 		return null;
 	}
-	const { hash, pathname, search } = new URL(url);
+	const { pathname, search, hash } = new URL(url);
 	return `${pathname}${search}${hash}`;
 };
