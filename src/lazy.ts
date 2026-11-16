@@ -1,5 +1,4 @@
-import type { ComponentType, LazyExoticComponent } from 'react';
-import { lazy as reactLazy } from 'react';
+import { type ComponentType, type LazyExoticComponent, lazy as reactLazy } from 'react';
 
 import type { ResolvedNode } from './routes';
 

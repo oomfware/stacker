@@ -1,17 +1,14 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
-import { act, use, useLayoutEffect } from 'react';
-import type { ReactNode } from 'react';
-import { createRoot } from 'react-dom/client';
-import type { Root } from 'react-dom/client';
+import { act, use, useLayoutEffect, type ReactNode } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { optional, string } from '../codec.ts';
 import { MemoryHistory } from '../history/memory.ts';
 import { NavigationHistory } from '../history/navigation.ts';
 import { Router } from '../router.ts';
-import { defineRoutes, layout, route } from '../routes.ts';
-import type { RouteRegistry } from '../routes.ts';
+import { defineRoutes, layout, route, type RouteRegistry } from '../routes.ts';
 import { disposed, openProbe, PROBE, probeWindow, settled, sleep, until } from '../test-support.ts';
 
 import { useIsFocused, useParams } from './hooks.ts';

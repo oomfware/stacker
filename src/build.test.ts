@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Builder } from './build.ts';
-import type { LooseTarget } from './build.ts';
+import { Builder, type LooseTarget } from './build.ts';
 import { enumOf, integer, optional, string, withDefault } from './codec.ts';
 import { Matcher } from './match.ts';
 import { defineRoutes, layout, route } from './routes.ts';

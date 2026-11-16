@@ -1,6 +1,5 @@
 import { getDefault, isOptional } from './codec.ts';
-import { splitSplat } from './routes.ts';
-import type { RouteRegistry, RouteTarget } from './routes.ts';
+import { splitSplat, type RouteRegistry, type RouteTarget } from './routes.ts';
 import { createPath, encodeRemainder, encodeSegment } from './url.ts';
 
 const SEGMENT = /:([A-Za-z_]\w*)/g;

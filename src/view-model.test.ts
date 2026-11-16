@@ -4,8 +4,7 @@ import { optional, string } from './codec.ts';
 import { Matcher } from './match.ts';
 import { defineRoutes, layout, route } from './routes.ts';
 import { Dummy, matched } from './test-support.ts';
-import { computeView } from './view-model.ts';
-import type { InstanceNode, PoolEntry, View } from './view-model.ts';
+import { computeView, type InstanceNode, type PoolEntry, type View } from './view-model.ts';
 
 const registry = defineRoutes({
 	app: layout({

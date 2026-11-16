@@ -1,9 +1,16 @@
 import { expectTypeOf, test } from 'vitest';
 
-import type { Codec } from './codec.ts';
-import { enumOf, optional, string, withDefault } from './codec.ts';
-import type { BuildParamsOf, MatchedTarget, ParamsOf, RouteName, RouteTarget } from './routes.ts';
-import { defineRoutes, layout, route } from './routes.ts';
+import { type Codec, enumOf, optional, string, withDefault } from './codec.ts';
+import {
+	type BuildParamsOf,
+	type MatchedTarget,
+	type ParamsOf,
+	type RouteName,
+	type RouteTarget,
+	defineRoutes,
+	layout,
+	route,
+} from './routes.ts';
 
 type Did = `did:${string}:${string}`;
 type Handle = `${string}.${string}`;
@@ -49,6 +56,7 @@ test('route registry inference', () => {
 	expectTypeOf<ParamsOf<R, 'PostThread'>>().toEqualTypeOf<{ didOrHandle: ActorId; rkey: string }>();
 	expectTypeOf<BuildParamsOf<R, 'PostThread'>>().toEqualTypeOf<{ didOrHandle: ActorId; rkey: string }>();
 
+	// oxlint-disable-next-line typescript/no-generated-empty-object-type -- asserting an empty shape
 	expectTypeOf<ParamsOf<R, 'Home'>>().toEqualTypeOf<Record<never, never>>();
 
 	expectTypeOf<ParamsOf<R, 'Search'>>().toEqualTypeOf<{ q: string; type?: 'feed' | 'profile' | 'user' }>();

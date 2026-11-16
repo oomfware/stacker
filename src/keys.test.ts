@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { enumOf, optional, string } from './codec.ts';
 import { instanceKey } from './keys.ts';
-import { Matcher } from './match.ts';
-import type { RouteMatch } from './match.ts';
+import { Matcher, type RouteMatch } from './match.ts';
 import { defineRoutes, layout, route } from './routes.ts';
 import { Dummy, matched } from './test-support.ts';
 

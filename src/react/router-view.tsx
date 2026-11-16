@@ -1,5 +1,4 @@
-import { Suspense, useContext, useLayoutEffect, useSyncExternalStore } from 'react';
-import type { ReactElement } from 'react';
+import { Suspense, useContext, useLayoutEffect, useSyncExternalStore, type ReactElement } from 'react';
 
 import type { Router } from '../router.ts';
 import type { RouteRegistry } from '../routes.ts';
@@ -29,6 +28,7 @@ export const RouterView = <R extends RouteRegistry<unknown>>({
 	}, [router]);
 	useLayoutEffect(() => {
 		router.notifyCommit();
+		// oxlint-disable-next-line react/exhaustive-effect-dependencies -- runs once per committed view
 	}, [router, view]);
 
 	return (
@@ -53,6 +53,7 @@ const ScrollRestorer = <R extends RouteRegistry<unknown>>({
 }): null => {
 	useLayoutEffect(() => {
 		router.restoreScroll();
+		// oxlint-disable-next-line react/exhaustive-effect-dependencies -- runs once per committed view
 	}, [router, view]);
 
 	return null;

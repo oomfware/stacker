@@ -1,6 +1,12 @@
 import { getDefault, isOptional } from './codec.ts';
-import { splitSplat } from './routes.ts';
-import type { ResolvedLeaf, ResolvedNode, RouteMeta, RouteRegistry, WhenContext } from './routes.ts';
+import {
+	splitSplat,
+	type ResolvedLeaf,
+	type ResolvedNode,
+	type RouteMeta,
+	type RouteRegistry,
+	type WhenContext,
+} from './routes.ts';
 import { decodeRemainder } from './url.ts';
 
 /** a node on a matched chain paired with its instance parameters. */

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Codec } from './codec.ts';
-import { enumOf, nonEmpty, optional, string, withDefault } from './codec.ts';
+import { type Codec, enumOf, nonEmpty, optional, string, withDefault } from './codec.ts';
 import { Matcher, resolveMeta } from './match.ts';
 import { defineRoutes, layout, route } from './routes.ts';
 import { Dummy, matched } from './test-support.ts';

@@ -1,5 +1,4 @@
-import { useContext, useEffect, useMemo, useSyncExternalStore } from 'react';
-import type { EffectCallback } from 'react';
+import { useContext, useEffect, useMemo, useSyncExternalStore, type EffectCallback } from 'react';
 
 import type { HistoryLocation } from '../history/types.ts';
 import type { RouteMatch } from '../match.ts';

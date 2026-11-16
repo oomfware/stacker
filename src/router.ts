@@ -1,14 +1,11 @@
 import { SimpleEventEmitter } from '@mary-ext/simple-event-emitter';
 import type { ComponentType, ReactNode } from 'react';
 
-import { Builder } from './build.ts';
-import type { LooseTarget } from './build.ts';
-import type { CacheEntryRef } from './cache.ts';
-import { computeCachedKeys } from './cache.ts';
+import { Builder, type LooseTarget } from './build.ts';
+import { type CacheEntryRef, computeCachedKeys } from './cache.ts';
 import type { History, HistoryLocation, HistoryNavigateOptions } from './history/types.ts';
 import { preloadAll } from './lazy.ts';
-import { Matcher } from './match.ts';
-import type { RouteMatch } from './match.ts';
+import { Matcher, type RouteMatch } from './match.ts';
 import type {
 	MatchedTarget,
 	QueryPatchOf,
@@ -20,8 +17,7 @@ import type {
 	RouteTarget,
 } from './routes.ts';
 import { createPath, parsePath, resolvePath } from './url.ts';
-import { computeView } from './view-model.ts';
-import type { PoolEntry, View } from './view-model.ts';
+import { computeView, type PoolEntry, type View } from './view-model.ts';
 
 /** options for a navigation. */
 export interface NavigateOptions<R extends RouteRegistry<unknown>> extends HistoryNavigateOptions {

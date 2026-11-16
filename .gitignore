@@ -5,5 +5,4 @@ coverage
 *.log
 .DS_Store
 .research
-__screenshots__
-.vitest-attachments
+.vitest

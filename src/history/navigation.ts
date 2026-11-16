@@ -49,10 +49,12 @@ const toAction = (type: NavigationType): HistoryAction | undefined => {
 	switch (type) {
 		case 'push':
 		case 'replace':
-		case 'traverse':
+		case 'traverse': {
 			return type;
-		default:
+		}
+		default: {
 			return undefined;
+		}
 	}
 };
 

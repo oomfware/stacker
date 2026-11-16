@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeCachedKeys } from './cache.ts';
-import type { CacheEntryRef } from './cache.ts';
+import { computeCachedKeys, type CacheEntryRef } from './cache.ts';
 
 const entries: CacheEntryRef[] = [
 	{ key: 'a', index: 0 },

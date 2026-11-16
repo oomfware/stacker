@@ -1,5 +1,4 @@
-import { useContext } from 'react';
-import type { ReactElement } from 'react';
+import { useContext, type ReactElement } from 'react';
 
 import { CurrentNodeContext } from './context.ts';
 import { Pool } from './router-view.tsx';

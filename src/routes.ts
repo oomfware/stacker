@@ -1,10 +1,17 @@
 import type { ComponentType, ReactNode } from 'react';
 
-import type { BuildShape, CodecRecord, DecodeShape, Infer } from './codec.ts';
-import { getDefault, isOptional } from './codec.ts';
+import {
+	type BuildShape,
+	type CodecRecord,
+	type DecodeShape,
+	type Infer,
+	getDefault,
+	isOptional,
+} from './codec.ts';
 
 // #region node definitions
 
+// oxlint-disable-next-line typescript/no-generated-empty-object-type -- an intentionally empty shape
 type Empty = Record<never, never>;
 
 /**

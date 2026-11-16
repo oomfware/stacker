@@ -303,8 +303,8 @@ use `router.dispose()` to detach the router from history when it is no longer ne
 use focus hooks for work that should run when the screen becomes active, rather than when it mounts:
 
 ```tsx
-import { useCallback } from 'react';
 import { useFocusEffect, useIsFocused } from '@oomfware/stacker';
+import { useCallback } from 'react';
 
 const Profile = () => {
 	const [{ actor }] = useParams('Profile');

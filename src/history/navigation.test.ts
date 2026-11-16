@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { disposed, openProbe, probeLoad, PROBE, sleep, until, written } from '../test-support.ts';
 
-import { NavigationHistory } from './navigation.ts';
-import type { NavigationHistoryOptions } from './navigation.ts';
+import { NavigationHistory, type NavigationHistoryOptions } from './navigation.ts';
 import type { History, HistoryUpdate } from './types.ts';
 
 interface Probe {

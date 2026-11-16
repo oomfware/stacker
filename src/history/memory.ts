@@ -1,7 +1,6 @@
 import { SimpleEventEmitter } from '@mary-ext/simple-event-emitter';
 
-import { createPath, resolvePath } from '../url.ts';
-import type { PathParts } from '../url.ts';
+import { createPath, resolvePath, type PathParts } from '../url.ts';
 
 import type {
 	History,
@@ -126,7 +125,7 @@ export class MemoryHistory implements History {
 	}
 
 	dispose(): void {
-		this.#updates = new SimpleEventEmitter();
+		this.#updates.clear();
 	}
 
 	#nextId(): string {

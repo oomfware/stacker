@@ -5,6 +5,7 @@
 		"typeCheck": true
 	},
 	"plugins": ["eslint", "oxc", "react", "typescript", "unicorn"],
+	"jsPlugins": ["@mary-ext/oxlint-rules"],
 	"categories": {
 		"correctness": "warn",
 		"suspicious": "warn",
@@ -13,12 +14,14 @@
 	"rules": {
 		"curly": "warn",
 		"no-control-regex": "off",
-		"react/react-compiler": "warn",
-		"react/react-in-jsx-scope": "off"
+		"mary-ext/consistent-imports": "warn",
+		"react/react-in-jsx-scope": "off",
+		"typescript/consistent-return": "off",
+		"unicorn/switch-case-braces": ["warn", "always"]
 	},
 	"overrides": [
 		{
-			"files": ["*.test.ts"],
+			"files": ["*.test.{ts,tsx}"],
 			"rules": {
 				"no-await-in-loop": "off",
 				"typescript/await-thenable": "off",

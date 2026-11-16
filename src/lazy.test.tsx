@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { Suspense } from 'react';
-import type { ReactElement } from 'react';
+import { Suspense, type ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { isPreloadable, lazy } from './lazy.ts';
