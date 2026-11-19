@@ -18,6 +18,7 @@ import type {
 } from './routes.ts';
 import { createPath, parsePath, resolvePath } from './url.ts';
 import { computeView, type PoolEntry, type View } from './view-model.ts';
+import { isWebKit } from './webkit.ts';
 
 /** options for a navigation. */
 export interface NavigateOptions<R extends RouteRegistry<unknown>> extends HistoryNavigateOptions {
@@ -49,6 +50,13 @@ export interface RouterOptions<R extends RouteRegistry<unknown>> {
 interface ScrollPosition {
 	readonly x: number;
 	readonly y: number;
+}
+
+/** a viewport offset waiting on the next commit. */
+interface PendingScroll {
+	readonly target: ScrollPosition;
+	/** whether to hold the offset against the scrolling process afterwards. */
+	readonly guard: boolean;
 }
 
 interface Entry {
@@ -90,7 +98,9 @@ export class Router<R extends RouteRegistry<unknown>> {
 	#view: View;
 	#commitWaiters: (() => void)[] = [];
 	#viewAttached = false;
-	#pendingScroll: ScrollPosition | null = null;
+	#pendingScroll: PendingScroll | null = null;
+	readonly #guardScrolls: boolean;
+	#stopScrollGuard: (() => void) | null = null;
 
 	constructor(options: RouterOptions<R>) {
 		this.#history = options.history;
@@ -103,6 +113,7 @@ export class Router<R extends RouteRegistry<unknown>> {
 		this.#pins = new Map((options.pins ?? []).map((name) => [name, this.#makePin(name)]));
 
 		this.#win = options.window ?? (typeof window === 'undefined' ? null : window);
+		this.#guardScrolls = this.#win !== null && isWebKit(this.#win.navigator.userAgent);
 
 		const location = this.#history.location;
 		this.#activeKey = location.key;
@@ -115,12 +126,12 @@ export class Router<R extends RouteRegistry<unknown>> {
 				return;
 			}
 
-			const win = this.#win;
-			const restoring = scroll === 'auto' && win !== null;
-			if (restoring) {
+			const win = scroll === 'auto' ? this.#win : null;
+			const departed = win === null ? null : { x: win.scrollX, y: win.scrollY };
+			if (departed !== null) {
 				const outgoing = this.#entries.get(this.#activeKey);
 				if (outgoing !== undefined) {
-					outgoing.scrollPos = { x: win.scrollX, y: win.scrollY };
+					outgoing.scrollPos = departed;
 				}
 			}
 
@@ -133,7 +144,19 @@ export class Router<R extends RouteRegistry<unknown>> {
 
 			this.#activeKey = next.key;
 			this.#view = this.#recompute();
-			this.#pendingScroll = restoring ? target : null;
+			if (win !== null && departed !== null) {
+				this.#pendingScroll = {
+					target,
+					guard: this.#guardScrolls && Math.abs(departed.y - target.y) >= 1,
+				};
+				// scroll while the outgoing screen still holds the document's height, so the page doesn't clamp a
+				// deep offset on its own when that screen is hidden; iOS Safari's scrolling process doesn't hear
+				// about such a clamp. the swap below commits within this task, so the outgoing screen isn't painted
+				// at the new offset.
+				win.scrollTo({ behavior: 'instant', left: target.x, top: target.y });
+			} else {
+				this.#pendingScroll = null;
+			}
 
 			const committed = this.#awaitCommit();
 			this.#updates.emit();
@@ -394,15 +417,93 @@ export class Router<R extends RouteRegistry<unknown>> {
 		}
 		this.#pendingScroll = null;
 		// an app-wide `scroll-behavior: smooth` would otherwise animate this.
-		win.scrollTo({ behavior: 'instant', left: pending.x, top: pending.y });
+		win.scrollTo({ behavior: 'instant', left: pending.target.x, top: pending.target.y });
+		if (pending.guard) {
+			this.#guardScroll(win);
+		}
 	}
 
 	/** detaches history listeners and disposes resources. */
 	dispose(): void {
+		this.#stopScrollGuard?.();
 		this.#unlisten();
 		this.#history.dispose();
 		// release transitions waiting on a view that has been disposed.
 		this.notifyCommit();
+	}
+
+	// holds the viewport where the page put it for a short while after a restore.
+	//
+	// iOS Safari scrolls on a separate process. when a navigation follows soon after a fling has settled, that
+	// process can keep the departed screen's offset despite `scrollTo`, and report it back (as is, or clamped
+	// to a height it has yet to catch up on) as the incoming screen grows. any scroll the page didn't ask for
+	// is therefore undone, which also makes the scrolling process take the intended offset. scrolls the page
+	// asks for through the window's scroll methods are let through, and the guard stands down once the user
+	// scrolls or the page starts a smooth scroll.
+	#guardScroll(win: Window): void {
+		this.#stopScrollGuard?.();
+
+		const controller = new AbortController();
+		const { signal } = controller;
+		const stop = () => {
+			controller.abort();
+		};
+		const timer = setTimeout(stop, 1000);
+		this.#stopScrollGuard = stop;
+		signal.addEventListener('abort', () => {
+			clearTimeout(timer);
+			if (this.#stopScrollGuard === stop) {
+				this.#stopScrollGuard = null;
+			}
+		});
+
+		const root = win.document.scrollingElement ?? win.document.documentElement;
+		// rubber-banding past the top reports negative offsets
+		const read = (): ScrollPosition => ({ x: Math.max(0, win.scrollX), y: Math.max(0, win.scrollY) });
+		let expected = read();
+
+		const scrollTo = win.scrollTo.bind(win);
+		for (const method of ['scroll', 'scrollTo', 'scrollBy'] as const) {
+			const original = win[method];
+			win[method] = function (this: Window, ...args: unknown[]) {
+				const [options] = args;
+				if (
+					typeof options === 'object' &&
+					options !== null &&
+					'behavior' in options &&
+					options.behavior === 'smooth'
+				) {
+					stop();
+				}
+				Reflect.apply(original, this, args);
+				expected = read();
+			};
+			signal.addEventListener('abort', () => {
+				win[method] = original;
+			});
+		}
+
+		win.addEventListener(
+			'scroll',
+			() => {
+				const current = read();
+				if (Math.abs(current.y - expected.y) < 1 && Math.abs(current.x - expected.x) < 1) {
+					return;
+				}
+				// the document got too short to hold the offset; this clamp is the page's own, so holding against
+				// it would only fight the layout
+				const maxY = Math.max(0, root.scrollHeight - root.clientHeight);
+				if (expected.y > maxY && Math.abs(current.y - maxY) < 1) {
+					expected = current;
+					return;
+				}
+				scrollTo({ behavior: 'instant', left: expected.x, top: expected.y });
+			},
+			{ signal },
+		);
+		for (const type of ['touchstart', 'wheel', 'keydown', 'pointerdown']) {
+			win.addEventListener(type, stop, { capture: true, passive: true, signal });
+		}
 	}
 
 	#active(): Entry {

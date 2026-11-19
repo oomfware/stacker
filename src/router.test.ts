@@ -7,7 +7,17 @@ import { NavigationHistory } from './history/navigation.ts';
 import type { HistoryListener } from './history/types.ts';
 import { Router } from './router.ts';
 import { defineRoutes, layout, route } from './routes.ts';
-import { disposed, Dummy, openProbe, PROBE, reloadProbe, settled, sleep, until } from './test-support.ts';
+import {
+	disposed,
+	Dummy,
+	openProbe,
+	PROBE,
+	reloadProbe,
+	SAFARI_UA,
+	settled,
+	sleep,
+	until,
+} from './test-support.ts';
 
 const csv = (): Codec<string[]> => ({
 	decode: (raw) => raw.split(','),
@@ -816,19 +826,106 @@ describe('Router on the navigation API', () => {
 		expect(router.canGoForward).toBe(true);
 	});
 
-	// with no view there is no commit to ride, so the router applies the offset itself.
-	it('restores the entry`s scroll with no view attached', async () => {
-		const win = await openProbe();
+	// scrolls to 400, pushes, and goes back, which should restore the 400.
+	const restoredTo400 = async (userAgent?: string): Promise<Window> => {
+		const win = await openProbe(userAgent);
 		win.document.body.style.height = '3000px';
 		const router = openOn(win);
 		win.scrollTo(0, 400);
 		expect(win.scrollY).toBe(400);
-
 		await settled(router, () => router.navigate({ to: '/other' }));
 		await until(() => win.scrollY === 0, 'a push to reset scroll to the top');
-
 		await settled(router, () => router.back());
 		await until(() => win.scrollY === 400, 'a traversal to restore the previous entry`s scroll');
+		return win;
+	};
+
+	// with no view there is no commit to ride, so the router applies the offset itself.
+	it('restores the entry`s scroll with no view attached', async () => {
+		await restoredTo400();
+	});
+
+	// iOS Safari's scrolling process can hold on to the departed offset after a fling, which can't be staged
+	// outside Safari. these stand in a scroll the page didn't ask for, which is how that shows up to the page.
+	describe('scroll guard on WebKit', () => {
+		// writing the root's offset goes around the window's scroll methods, like the scrolling process does.
+		const stray = async (win: Window, y: number): Promise<void> => {
+			win.document.documentElement.scrollTop = y;
+			await sleep(50);
+		};
+
+		const scrollMethodOf = (win: Window): unknown =>
+			// oxlint-disable-next-line typescript/unbound-method -- compared by identity, never called
+			win.scrollTo;
+
+		it('undoes a scroll the page didn`t ask for, right after a restore', async () => {
+			const win = await restoredTo400(SAFARI_UA);
+
+			await stray(win, 900);
+
+			expect(win.scrollY).toBe(400);
+		});
+
+		it('lets the page scroll through the window`s scroll methods', async () => {
+			const win = await restoredTo400(SAFARI_UA);
+
+			win.scrollTo(0, 700);
+			await sleep(50);
+			win.scrollBy(0, 100);
+			await sleep(50);
+
+			expect(win.scrollY).toBe(800);
+		});
+
+		it('accepts the page`s own clamp when the document gets too short to hold the offset', async () => {
+			const win = await restoredTo400(SAFARI_UA);
+
+			win.document.body.style.height = '200px';
+			await sleep(50);
+
+			expect(win.scrollY).toBe(0);
+		});
+
+		it('stands down once the user scrolls', async () => {
+			const win = await restoredTo400(SAFARI_UA);
+
+			win.dispatchEvent(new Event('touchstart'));
+			await stray(win, 900);
+
+			expect(win.scrollY).toBe(900);
+		});
+
+		it('stands down when the page starts a smooth scroll', async () => {
+			const win = await restoredTo400(SAFARI_UA);
+			const patched = scrollMethodOf(win);
+
+			win.scrollTo({ top: 400, behavior: 'smooth' });
+
+			expect(scrollMethodOf(win)).not.toBe(patched);
+			await stray(win, 900);
+			expect(win.scrollY).toBe(900);
+		});
+
+		it('stands down after a second, putting the window`s scroll methods back', async () => {
+			const win = await restoredTo400(SAFARI_UA);
+			const patched = scrollMethodOf(win);
+
+			await sleep(1100);
+
+			expect(scrollMethodOf(win)).not.toBe(patched);
+			await stray(win, 900);
+			expect(win.scrollY).toBe(900);
+		});
+
+		it('stays off outside WebKit', async () => {
+			const win = await restoredTo400();
+			const native = scrollMethodOf(win);
+
+			await stray(win, 900);
+
+			expect(win.scrollY).toBe(900);
+			expect(scrollMethodOf(win)).toBe(native);
+		});
 	});
 
 	it('keeps a page leaf warm across both a patch and an ordinary replace', async () => {
