@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { disposed, openProbe, probeLoad, PROBE, sleep, until, written } from '../test-support.ts';
+import { disposed, openProbe, probeLoad, PROBE, SAFARI_UA, sleep, until, written } from '../test-support.ts';
 
 import { NavigationHistory, type NavigationHistoryOptions } from './navigation.ts';
 import type { History, HistoryUpdate } from './types.ts';
@@ -10,17 +10,11 @@ interface Probe {
 	readonly win: Window & { sentinel?: string };
 }
 
-const SAFARI =
-	'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15';
-
 const open = async (
 	options: Omit<NavigationHistoryOptions, 'window'> = {},
 	userAgent?: string,
 ): Promise<Probe> => {
-	const win = await openProbe();
-	if (userAgent !== undefined) {
-		Object.defineProperty(win.navigator, 'userAgent', { value: userAgent });
-	}
+	const win = await openProbe(userAgent);
 	return { history: disposed(new NavigationHistory({ ...options, window: win })), win };
 };
 
@@ -354,7 +348,7 @@ describe('NavigationHistory', () => {
 		});
 
 		it('on WebKit, intercepts only writes and reports each navigation once', async () => {
-			const { history, win } = await open({}, SAFARI);
+			const { history, win } = await open({}, SAFARI_UA);
 			const types = intercepts(win);
 			const updates = reported(history);
 
@@ -371,7 +365,7 @@ describe('NavigationHistory', () => {
 		});
 
 		it('on WebKit, resets traversal focus to the body without retaining tabindex', async () => {
-			const { history, win } = await open({}, SAFARI);
+			const { history, win } = await open({}, SAFARI_UA);
 			await written(history, () => history.push(`${PROBE}?n=a`));
 			focusedInput(win);
 
@@ -382,7 +376,7 @@ describe('NavigationHistory', () => {
 		});
 
 		it('on WebKit, preserves focus set during rendering', async () => {
-			const { history, win } = await open({}, SAFARI);
+			const { history, win } = await open({}, SAFARI_UA);
 			await written(history, () => history.push(`${PROBE}?n=a`));
 			focusedInput(win);
 			const target = win.document.createElement('input');
@@ -398,7 +392,7 @@ describe('NavigationHistory', () => {
 		});
 
 		it('on WebKit, reports traversal render errors', async () => {
-			const { errors, history } = await caught(SAFARI);
+			const { errors, history } = await caught(SAFARI_UA);
 			await written(history, () => history.push(`${PROBE}?n=a`));
 			history.listen(() => {
 				throw new Error('the render blew up');
@@ -408,6 +402,95 @@ describe('NavigationHistory', () => {
 			await until(() => errors.length > 0, 'the failed render to be reported');
 
 			expect((errors[0] as Error).message).toBe('the render blew up');
+		});
+	});
+
+	// a tab Safari restored from a previous session queues navigation API traversals, and fires only `popstate`
+	// on a traversal into a restored entry. neither can be staged outside Safari, so these pin the routing.
+	describe('session-restored tabs on WebKit', () => {
+		const spyTraversals = (win: Window): { history: string[]; navigation: string[] } => {
+			const calls: { history: string[]; navigation: string[] } = { history: [], navigation: [] };
+			for (const method of ['back', 'forward', 'go'] as const) {
+				const original = win.history[method].bind(win.history);
+				win.history[method] = (delta?: number) => {
+					calls.history.push(delta === undefined ? method : `${method}(${delta})`);
+					original(delta);
+				};
+			}
+			for (const method of ['back', 'forward', 'traverseTo'] as const) {
+				const original = win.navigation[method].bind(win.navigation);
+				win.navigation[method] = (...args: [string, NavigationOptions?]) => {
+					calls.navigation.push(method);
+					return original(...args);
+				};
+			}
+			return calls;
+		};
+
+		it('traverses through the legacy history API, and reports each traversal once', async () => {
+			const { history, win } = await open({}, SAFARI_UA);
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			await written(history, () => history.push(`${PROBE}?n=b`));
+			const calls = spyTraversals(win);
+			const updates = reported(history);
+
+			await written(history, () => history.back());
+			await written(history, () => history.forward());
+			await written(history, () => history.go(-2));
+			await written(history, () => {
+				void history.traverseTo(history.entries()[1]!.key);
+			});
+			await sleep(50);
+
+			expect(calls.navigation).toEqual([]);
+			expect(calls.history).toEqual(['back', 'forward', 'go(-2)', 'go(1)']);
+			expect(updates.map((u) => u.action)).toEqual(['traverse', 'traverse', 'traverse', 'traverse']);
+			expect(history.location.search).toBe('?n=a');
+		});
+
+		it('rejects a traversal to an unknown key without reporting it', async () => {
+			const { errors, history } = await caught(SAFARI_UA);
+
+			await expect(history.traverseTo('not-a-key')).rejects.toThrow();
+			await sleep(50);
+
+			expect(errors).toEqual([]);
+		});
+
+		it('leaves an ordinary traversal`s popstate alone', async () => {
+			const { history, win } = await open({}, SAFARI_UA);
+			win.sentinel = 'alive';
+			await written(history, () => history.push(`${PROBE}?n=a`));
+
+			await written(history, () => history.back());
+			await sleep(50);
+
+			expect(win.sentinel).toBe('alive');
+		});
+
+		it('reloads when a traversal leaves the navigation API without a current entry', async () => {
+			const { history, win } = await open({}, SAFARI_UA);
+			win.sentinel = 'alive';
+			const updates = reported(history);
+			Object.defineProperty(win.navigation, 'currentEntry', { configurable: true, get: () => null });
+
+			const loaded = probeLoad();
+			win.dispatchEvent(new PopStateEvent('popstate'));
+			const reloaded: typeof win = await loaded;
+
+			expect(reloaded.sentinel).toBeUndefined();
+			expect(updates).toEqual([]);
+		});
+
+		it('keeps traversing through the navigation API off WebKit', async () => {
+			const { history, win } = await open();
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			const calls = spyTraversals(win);
+
+			await written(history, () => history.back());
+
+			expect(calls.history).toEqual([]);
+			expect(calls.navigation).toEqual(['back']);
 		});
 	});
 

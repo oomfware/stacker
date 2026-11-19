@@ -62,8 +62,16 @@ const currentFrame = (): HTMLIFrameElement => {
 	return frame;
 };
 
-/** opens an isolated session history without navigating the test runner. */
-export const openProbe = async (): Promise<Window> => {
+/** a Safari UA, for code paths that only run on WebKit. */
+export const SAFARI_UA =
+	'Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1';
+
+/**
+ * opens an isolated session history without navigating the test runner.
+ *
+ * @param userAgent UA the probe window reports, in place of the test browser's
+ */
+export const openProbe = async (userAgent?: string): Promise<Window> => {
 	const frame = document.createElement('iframe');
 	frame.src = PROBE;
 	frame.style.width = '400px';
@@ -71,7 +79,11 @@ export const openProbe = async (): Promise<Window> => {
 	document.body.append(frame);
 	frames.push(frame);
 	await probeLoad();
-	return windowOf(frame);
+	const win = windowOf(frame);
+	if (userAgent !== undefined) {
+		Object.defineProperty(win.navigator, 'userAgent', { value: userAgent });
+	}
+	return win;
 };
 
 /** the window of the probe frame currently open, for code that cannot be handed one. */

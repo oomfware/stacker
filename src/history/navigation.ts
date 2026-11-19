@@ -1,3 +1,5 @@
+import { isWebKit } from '../webkit.ts';
+
 import type {
 	History,
 	HistoryAction,
@@ -62,10 +64,6 @@ const toAction = (type: NavigationType): HistoryAction | undefined => {
 const isAbort = (error: unknown): boolean =>
 	typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError';
 
-// Chromium's UA includes AppleWebKit; Chrome on iOS uses CriOS.
-const isWebKit = (userAgent: string): boolean =>
-	/AppleWebKit\//.test(userAgent) && !/(?:Chrome|Chromium)\//.test(userAgent);
-
 /**
  * history implementation backed by the web navigation API.
  *
@@ -81,16 +79,20 @@ export class NavigationHistory implements History {
 	#disposed = false;
 	#location: HistoryLocation;
 
-	// WebKit delays dismissing the swipe-back snapshot when a traversal is intercepted with a wheel
-	// listener attached: https://bugs.webkit.org/show_bug.cgi?id=319414
-	// render these traversals through `currententrychange` instead.
-	readonly #interceptTraversals: boolean;
+	// WebKit gets two traversal workarounds:
+	// - it delays dismissing the swipe-back snapshot when a traversal is intercepted with a wheel listener
+	//   attached (https://bugs.webkit.org/show_bug.cgi?id=319414), so traversals render through
+	//   `currententrychange` instead of being intercepted.
+	// - in a tab Safari restored from a previous session, navigation API traversals are queued and never run
+	//   until some other traversal flushes them, while `history.go()` still goes through, so traversals are
+	//   made through the legacy history API.
+	readonly #webkit: boolean;
 
 	constructor(options: NavigationHistoryOptions = {}) {
 		this.#win = options.window ?? window;
 		this.#nav = this.#win.navigation;
 		this.#ignore = options.ignore;
-		this.#interceptTraversals = !isWebKit(this.#win.navigator.userAgent);
+		this.#webkit = isWebKit(this.#win.navigator.userAgent);
 		this.#onError =
 			options.onError ??
 			((error: unknown) => {
@@ -100,6 +102,9 @@ export class NavigationHistory implements History {
 		this.#nav.addEventListener('currententrychange', this.#onCurrentEntryChange);
 		this.#nav.addEventListener('navigate', this.#onNavigate);
 		this.#nav.addEventListener('navigateerror', this.#onNavigateError);
+		if (this.#webkit) {
+			this.#win.addEventListener('popstate', this.#onPopState);
+		}
 
 		this.#win.history.scrollRestoration = 'manual';
 	}
@@ -140,6 +145,9 @@ export class NavigationHistory implements History {
 	}
 
 	traverseTo(key: string): Promise<void> {
+		if (this.#webkit) {
+			return this.#traverseLegacy(key);
+		}
 		return this.#track(this.#nav.traverseTo(key));
 	}
 
@@ -153,15 +161,25 @@ export class NavigationHistory implements History {
 	}
 
 	back(): void {
-		if (this.#nav.canGoBack) {
-			this.#report(this.#track(this.#nav.back()));
+		if (!this.#nav.canGoBack) {
+			return;
 		}
+		if (this.#webkit) {
+			this.#win.history.back();
+			return;
+		}
+		this.#report(this.#track(this.#nav.back()));
 	}
 
 	forward(): void {
-		if (this.#nav.canGoForward) {
-			this.#report(this.#track(this.#nav.forward()));
+		if (!this.#nav.canGoForward) {
+			return;
 		}
+		if (this.#webkit) {
+			this.#win.history.forward();
+			return;
+		}
+		this.#report(this.#track(this.#nav.forward()));
 	}
 
 	listen(listener: HistoryListener): () => void {
@@ -176,8 +194,36 @@ export class NavigationHistory implements History {
 		this.#nav.removeEventListener('currententrychange', this.#onCurrentEntryChange);
 		this.#nav.removeEventListener('navigate', this.#onNavigate);
 		this.#nav.removeEventListener('navigateerror', this.#onNavigateError);
+		this.#win.removeEventListener('popstate', this.#onPopState);
 		this.#listeners.clear();
 	}
+
+	async #traverseLegacy(key: string): Promise<void> {
+		const target = this.#nav.entries().find((entry) => entry.key === key);
+		if (target === undefined) {
+			throw new DOMException(`no history entry with the key '${key}'`, 'InvalidStateError');
+		}
+		const delta = target.index - this.#location.index;
+		// `history.go(0)` reloads the page.
+		if (delta !== 0) {
+			this.#win.history.go(delta);
+		}
+	}
+
+	// traversing into an entry Safari restored from a previous session fires only `popstate`, leaving the
+	// navigation API without a current entry and the view on the page we left. nothing recovers the
+	// navigation API in this document, so load the destination afresh.
+	//
+	// an ordinary traversal fires `currententrychange` first, and `#traverseUnintercepted` updates `#location`
+	// before its first await, so a matching key here means the traversal was already handled.
+	readonly #onPopState = (): void => {
+		const entry = this.#nav.currentEntry;
+		if (entry !== null && entry.key === this.#location.key) {
+			return;
+		}
+		this.dispose();
+		this.#win.location.reload();
+	};
 
 	// render failures also reach `navigateerror`.
 	#track(result: NavigationResult): Promise<void> {
@@ -235,7 +281,7 @@ export class NavigationHistory implements History {
 	}
 
 	readonly #onCurrentEntryChange = (event: NavigationCurrentEntryChangeEvent): void => {
-		if (event.navigationType === 'traverse' && !this.#interceptTraversals) {
+		if (event.navigationType === 'traverse' && this.#webkit) {
 			this.#report(this.#traverseUnintercepted());
 			return;
 		}
@@ -287,7 +333,7 @@ export class NavigationHistory implements History {
 		if (event.downloadRequest !== null || event.formData !== null) {
 			return;
 		}
-		if (action === 'traverse' && !this.#interceptTraversals) {
+		if (action === 'traverse' && this.#webkit) {
 			return;
 		}
 		// ignored writes load a new document, while an ignored traversal would only desynchronize this one.
