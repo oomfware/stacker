@@ -106,7 +106,10 @@ export class NavigationHistory implements History {
 			this.#win.addEventListener('popstate', this.#onPopState);
 		}
 
-		this.#win.history.scrollRestoration = 'manual';
+		this.#resumeScrollRestoration();
+		this.#win.addEventListener('beforeunload', this.#suspendScrollRestoration);
+		this.#win.addEventListener('pagehide', this.#suspendScrollRestoration);
+		this.#win.addEventListener('pageshow', this.#resumeScrollRestoration);
 	}
 
 	get location(): HistoryLocation {
@@ -195,6 +198,9 @@ export class NavigationHistory implements History {
 		this.#nav.removeEventListener('navigate', this.#onNavigate);
 		this.#nav.removeEventListener('navigateerror', this.#onNavigateError);
 		this.#win.removeEventListener('popstate', this.#onPopState);
+		this.#win.removeEventListener('beforeunload', this.#suspendScrollRestoration);
+		this.#win.removeEventListener('pagehide', this.#suspendScrollRestoration);
+		this.#win.removeEventListener('pageshow', this.#resumeScrollRestoration);
 		this.#listeners.clear();
 	}
 
@@ -209,6 +215,20 @@ export class NavigationHistory implements History {
 			this.#win.history.go(delta);
 		}
 	}
+
+	// same-document entries stay on 'auto', as iOS WebKit drops a 'manual' entry's swipe-back snapshot
+	// unless the scroll offset still matches it. the router positions the viewport either way.
+	//
+	// the entry turns 'manual' as the document is left, so a reload or cross-document return starts at the
+	// top. Firefox records the mode before `pagehide`, hence `beforeunload`; iOS Safari only fires
+	// `pagehide`.
+	readonly #suspendScrollRestoration = (): void => {
+		this.#win.history.scrollRestoration = 'manual';
+	};
+
+	readonly #resumeScrollRestoration = (): void => {
+		this.#win.history.scrollRestoration = 'auto';
+	};
 
 	// traversing into an entry Safari restored from a previous session fires only `popstate`, leaving the
 	// navigation API without a current entry and the view on the page we left. nothing recovers the
@@ -333,11 +353,15 @@ export class NavigationHistory implements History {
 		if (event.downloadRequest !== null || event.formData !== null) {
 			return;
 		}
-		if (action === 'traverse' && this.#webkit) {
-			return;
-		}
 		// ignored writes load a new document, while an ignored traversal would only desynchronize this one.
 		if (action !== 'traverse' && this.#ignore?.(new URL(event.destination.url))) {
+			return;
+		}
+
+		// in case a `beforeunload` prompt was cancelled.
+		this.#resumeScrollRestoration();
+
+		if (action === 'traverse' && this.#webkit) {
 			return;
 		}
 

@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { disposed, openProbe, probeLoad, PROBE, SAFARI_UA, sleep, until, written } from '../test-support.ts';
+import {
+	disposed,
+	openProbe,
+	probeLoad,
+	PROBE,
+	reloadProbe,
+	SAFARI_UA,
+	sleep,
+	until,
+	written,
+} from '../test-support.ts';
 
 import { NavigationHistory, type NavigationHistoryOptions } from './navigation.ts';
 import type { History, HistoryUpdate } from './types.ts';
@@ -240,9 +250,54 @@ describe('NavigationHistory', () => {
 	});
 
 	describe('scroll and focus', () => {
-		it('turns off the browser`s own scroll restoration, which the router replaces', async () => {
+		it('keeps scroll restoration on auto', async () => {
+			const { history, win } = await open();
+			expect(win.history.scrollRestoration).toBe('auto');
+
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			expect(win.history.scrollRestoration).toBe('auto');
+
+			await written(history, () => history.back());
+			expect(win.history.scrollRestoration).toBe('auto');
+		});
+
+		it('switches to manual as the document is left', async () => {
+			await open();
+
+			const reloaded = await reloadProbe();
+
+			expect(reloaded.history.scrollRestoration).toBe('manual');
+		});
+
+		it('switches back to auto on pageshow', async () => {
 			const { win } = await open();
+
+			win.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
 			expect(win.history.scrollRestoration).toBe('manual');
+			win.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+
+			expect(win.history.scrollRestoration).toBe('auto');
+		});
+
+		it('switches back to auto after a cancelled exit', async () => {
+			const { history, win } = await open();
+
+			win.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+			expect(win.history.scrollRestoration).toBe('manual');
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			expect(win.history.scrollRestoration).toBe('auto');
+
+			await written(history, () => history.back());
+			expect(win.history.scrollRestoration).toBe('auto');
+		});
+
+		it('leaves scroll restoration alone after dispose', async () => {
+			const { history, win } = await open();
+
+			history.dispose();
+			win.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+
+			expect(win.history.scrollRestoration).toBe('auto');
 		});
 
 		it('leaves the viewport where it is, reporting the behavior for the router to act on', async () => {

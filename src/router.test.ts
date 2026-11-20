@@ -837,6 +837,8 @@ describe('Router on the navigation API', () => {
 		await until(() => win.scrollY === 0, 'a push to reset scroll to the top');
 		await settled(router, () => router.back());
 		await until(() => win.scrollY === 400, 'a traversal to restore the previous entry`s scroll');
+		// unintercepted, Chromium restores the offset too, a few frames later.
+		await sleep(50);
 		return win;
 	};
 
