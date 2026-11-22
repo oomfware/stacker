@@ -50,18 +50,17 @@
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
 		"@vitejs/plugin-react": "^6.3.0",
-		"@vitest/browser-playwright": "^5.1.0",
+		"@vitest/browser-playwright": "^5.1.1",
 		"bumpp": "^12.3.0",
-		"oxfmt": "^0.78.0",
-		"oxlint": "^1.93.0",
-		"oxlint-tsgolint": "^7.0.2007",
+		"oxfmt": "^0.79.0",
+		"oxlint": "^1.94.0",
 		"playwright": "^1.65.1",
 		"react": "^19.3.1",
 		"react-dom": "^19.3.1",
 		"tsdown": "^0.23.7",
-		"typescript": "^7.0.2",
+		"tsrs": "7.1.0-beta.tsrs4",
 		"vite": "^8.3.8",
-		"vitest": "^5.1.0"
+		"vitest": "^5.1.1"
 	},
 	"peerDependencies": {
 		"react": ">=19.0.0",
