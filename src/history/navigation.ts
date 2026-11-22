@@ -106,10 +106,9 @@ export class NavigationHistory implements History {
 			this.#win.addEventListener('popstate', this.#onPopState);
 		}
 
-		this.#resumeScrollRestoration();
 		this.#win.addEventListener('beforeunload', this.#suspendScrollRestoration);
 		this.#win.addEventListener('pagehide', this.#suspendScrollRestoration);
-		this.#win.addEventListener('pageshow', this.#resumeScrollRestoration);
+		this.#win.addEventListener('pageshow', this.#onPageShow);
 	}
 
 	get location(): HistoryLocation {
@@ -200,7 +199,7 @@ export class NavigationHistory implements History {
 		this.#win.removeEventListener('popstate', this.#onPopState);
 		this.#win.removeEventListener('beforeunload', this.#suspendScrollRestoration);
 		this.#win.removeEventListener('pagehide', this.#suspendScrollRestoration);
-		this.#win.removeEventListener('pageshow', this.#resumeScrollRestoration);
+		this.#win.removeEventListener('pageshow', this.#onPageShow);
 		this.#listeners.clear();
 	}
 
@@ -221,13 +220,20 @@ export class NavigationHistory implements History {
 	//
 	// the entry turns 'manual' as the document is left, so a reload or cross-document return starts at the
 	// top. Firefox records the mode before `pagehide`, hence `beforeunload`; iOS Safari only fires
-	// `pagehide`.
+	// `pagehide`. a loaded document keeps 'manual' until it navigates, as iOS WebKit reads the mode after load
+	// to decide whether to restore a reloaded entry's offset; only a bfcache return resumes right away.
 	readonly #suspendScrollRestoration = (): void => {
 		this.#win.history.scrollRestoration = 'manual';
 	};
 
 	readonly #resumeScrollRestoration = (): void => {
 		this.#win.history.scrollRestoration = 'auto';
+	};
+
+	readonly #onPageShow = (event: PageTransitionEvent): void => {
+		if (event.persisted) {
+			this.#resumeScrollRestoration();
+		}
 	};
 
 	// traversing into an entry Safari restored from a previous session fires only `popstate`, leaving the
@@ -358,7 +364,7 @@ export class NavigationHistory implements History {
 			return;
 		}
 
-		// in case a `beforeunload` prompt was cancelled.
+		// leaves the 'manual' of a fresh load or a cancelled `beforeunload` prompt.
 		this.#resumeScrollRestoration();
 
 		if (action === 'traverse' && this.#webkit) {

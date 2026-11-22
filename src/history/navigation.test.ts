@@ -269,7 +269,19 @@ describe('NavigationHistory', () => {
 			expect(reloaded.history.scrollRestoration).toBe('manual');
 		});
 
-		it('switches back to auto on pageshow', async () => {
+		it('keeps manual in a reloaded document until it navigates', async () => {
+			await open();
+			const reloaded = await reloadProbe();
+
+			const history = disposed(new NavigationHistory({ window: reloaded }));
+			reloaded.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: false }));
+			expect(reloaded.history.scrollRestoration).toBe('manual');
+
+			await written(history, () => history.push(`${PROBE}?n=a`));
+			expect(reloaded.history.scrollRestoration).toBe('auto');
+		});
+
+		it('switches back to auto on a bfcache pageshow', async () => {
 			const { win } = await open();
 
 			win.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
